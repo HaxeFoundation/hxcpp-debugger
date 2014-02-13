@@ -1,0 +1,11 @@
+{
+    "name" : "debugger",
+    "license" : "Custom",
+    "version" : "1.0.0",
+    "description" : "Haxe classes implementing a debugger interface to the cpp.vm.Debugger class",
+    "contributors" : [ "TiVo, Inc." ],
+    "releasenote" : "",
+    "dependencies" : {
+        "hxcpp"
+    }
+}
