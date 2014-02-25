@@ -63,6 +63,9 @@ enum Command
     Files;
     // Response: StringList
 
+    FilesFullPath;
+    // Response: StringList
+
     Classes;
     // Response: StringList
 
@@ -261,6 +264,7 @@ enum Message
     Exited;
     Detached;
     Files(list : StringList);
+    FilesFullPath(list : StringList);
     Classes(list : StringList);
     MemBytes(bytes : Int);
     Compacted(bytesBefore : Int, bytesAfter : Int);

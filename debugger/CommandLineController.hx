@@ -245,6 +245,11 @@ class CommandLineController implements IController
             printStringList(list, "\n");
             Sys.println("");
 
+        case FilesFullPath(list):
+            printStringList(list, "\n");
+            Sys.println("");
+
+
         case Classes(list):
             printStringList(list, "\n");
             Sys.println("");
@@ -403,7 +408,7 @@ class CommandLineController implements IController
         case Variables(list):
             printStringList(list, "\n");
             Sys.println("");
-            
+
         case Value(expression, type, value):
             Sys.println(expression + " : " + type + " = " + value);
 
@@ -545,6 +550,12 @@ class CommandLineController implements IController
     {
         return Files;
     }
+
+    private function filespath(regex : EReg) : Null<Command>
+    {
+        return FilesFullPath;
+    }
+
 
     private function classes(regex : EReg) : Null<Command>
     {
@@ -992,6 +1003,7 @@ class CommandLineController implements IController
   { r: ~/^history[\s]+-[\s]*([0-9]+)$/, h: history_upto },
   { r: ~/^history[\s]+([0-9]+)[\s]*-$/, h: history_from },
   { r: ~/^history[\s]+([0-9]+)[\s]*-[\s]*([0-9]+)$/, h: history_from_upto },
+  { r: ~/^filespath[\s]*$/, h: filespath },
   { r: ~/^files[\s]*$/, h: files },
   { r: ~/^classes[\s]*$/, h: classes },
   { r: ~/^mem[\s]*$/, h: mem },
@@ -1123,6 +1135,12 @@ class CommandLineController implements IController
  l : "Syntax: files\n\n" +
      "The files command lists all files in which file:line breakpoints may\n" +
      "be set." },
+
+         { c : "filesfull",     s : "Lists full paths of the debuggable files",
+ l : "Syntax: files\n\n" +
+     "The order of theses paths matches the order of the 'files' command.\n" +
+     "Use this to work out which file to edit." },
+
 
          { c : "classes",   s : "Lists debuggable classes",
  l : "Syntax: classes\n\n" +

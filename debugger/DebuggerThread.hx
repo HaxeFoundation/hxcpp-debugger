@@ -155,6 +155,9 @@ class DebuggerThread
                 case Files:
                     emit(this.files());
 
+                case FilesFullPath:
+                    emit(this.filesFullPath());
+
                 case Classes:
                     emit(this.classes());
 
@@ -300,23 +303,29 @@ class DebuggerThread
         mController.acceptMessage(message);
     }
 
-    private function files() : Message
+    private function filesToList(files:Array<String>) : StringList
     {
-        var files = Debugger.getFiles();
-
         var list : StringList = Terminator;
 
-        // Sort the files in reverse so that the list can be created easily
-        files.sort(function (a : String, b : String) {
-                return Reflect.compare(b, a);
-            });
-
-        for (f in files) {
-            list = Element(f, list);
+        // Preserve order
+        for (f in 0...files.length) {
+            list = Element(files[files.length-1-f], list);
         }
 
-        return Files(list);
+        return list;
     }
+
+    private function files() : Message
+    {
+        // Preserve order to match filesFullPath
+        return Files( filesToList( Debugger.getFiles() ) );
+    }
+
+    private function filesFullPath() : Message
+    {
+        return FilesFullPath( filesToList( Debugger.getFilesFullPath() ) );
+    }
+
 
     private function classes() : Message
     {
