@@ -3,7 +3,7 @@
     "license" : "MIT",
     "version" : "1.0.0",
     "description" : "Haxe classes implementing a debugger interface to the cpp.vm.Debugger class",
-    "contributors" : [ "TiVo, Inc.", "gamehaxe" ],
+    "contributors" : [ "gamehaxe" ],
     "releasenote" : "See Changes.md",
     "dependencies" : {
         "hxcpp" : ""
