@@ -266,6 +266,7 @@ class DebuggerThread
     }
 
     private function handleThreadEvent(threadNumber : Int, event : Int,
+                                       stackFrame : Int,
                                        className : String,
                                        functionName : String,
                                        fileName : String, lineNumber : Int)
