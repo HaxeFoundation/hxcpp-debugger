@@ -245,15 +245,15 @@ class CommandLineController implements IController
             printStringList(list, "\n");
             Sys.println("");
 
-        case FilesFullPath(list):
-            printStringList(list, "\n");
-            Sys.println("");
-
-
-        case Classes(list):
+        case AllClasses(list):
             printStringList(list, "\n");
             Sys.println("");
             
+        case Classes(list):
+            // The command line controller never issues a request that should
+            // have a Classes response, instead it asks for AllClasses
+            throw "Internal error: unexpected Classes";
+
         case MemBytes(bytes):
             Sys.println(bytes + " bytes used.");
 
@@ -265,8 +265,11 @@ class CommandLineController implements IController
             Sys.println(bytesBefore + " bytes used before collection.");
             Sys.println(bytesAfter + " bytes used after collection.");
 
-        case CurrentThread(number):
-            Sys.println("Current thread set to " + number + ".");
+        case ThreadLocation(number, frameNumber, className, functionName,
+                            fileName, lineNumber):
+            Sys.println("*     " + frameNumber + " : " +
+                        className + "." + functionName + "() at " +
+                        fileName + ":" + lineNumber);
             
         case FileLineBreakpointNumber(number):
             Sys.println("Breakpoint " + number + " set and enabled.");
@@ -344,9 +347,6 @@ class CommandLineController implements IController
                 }
             }
 
-        case Continued(count):
-            // Don't print anything here
-
         case ThreadsWhere(Terminator):
             Sys.println("No threads.");
 
@@ -402,28 +402,28 @@ class CommandLineController implements IController
                 }
             }
 
-        case CurrentFrame(number):
-            Sys.println("At frame " + number + ".");
-
         case Variables(list):
             printStringList(list, "\n");
             Sys.println("");
-
+            
         case Value(expression, type, value):
             Sys.println(expression + " : " + type + " = " + value);
 
+        case Structured(structuredValue):
+            throw "Internal error: unexpected Structured";
+
         case ThreadCreated(number):
-            Sys.println("Thread " + number + " created.");
+            Sys.println("\nThread " + number + " created.");
 
         case ThreadTerminated(number):
-            Sys.println("Thread " + number + " terminated.");
+            Sys.println("\nThread " + number + " terminated.");
 
         case ThreadStarted(number):
             // Don't print anything
 
-        case ThreadStopped(number, className, functionName, fileName,
-                           lineNumber):
-            Sys.println("Thread " + number + " stopped in " +
+        case ThreadStopped(number, frameNumber, className, functionName,
+                           fileName, lineNumber):
+            Sys.println("\nThread " + number + " stopped in " +
                         className + "." + functionName + "() at " +
                         fileName + ":" + lineNumber + ".");
         }
@@ -556,10 +556,9 @@ class CommandLineController implements IController
         return FilesFullPath;
     }
 
-
     private function classes(regex : EReg) : Null<Command>
     {
-        return Classes;
+        return AllClasses;
     }
 
     private function mem(regex : EReg) : Null<Command>
@@ -621,17 +620,22 @@ class CommandLineController implements IController
 
     private function break_class_function(regex : EReg) : Null<Command>
     {
-        return AddClassFunctionBreakpoint(regex.matched(2), regex.matched(3));
+        var full = regex.matched(2);
+        var lastDot = full.lastIndexOf(".");
+        return AddClassFunctionBreakpoint(full.substring(0, lastDot),
+                                          full.substring(lastDot + 1));
     }
 
     private function break_class_regexp(regex : EReg) : Null<Command>
     {
-        var className = regex.matched(2);
+        var full = regex.matched(2);
+        var index = full.indexOf("/");
+        var className = full.substring(0, index - 1);
 
-        var value = regex.matched(3);
+        var value = full.substring(index);
 
         // Value starts with / ... look for end /
-        var index = findSlash(value, 1);
+        index = findSlash(value, 1);
 
         if (index == -1) {
             Sys.println("Invalid command.");
@@ -753,6 +757,12 @@ class CommandLineController implements IController
     {
         return DeleteBreakpointRange(Std.parseInt(regex.matched(2)),
                                      Std.parseInt(regex.matched(3)));
+    }
+
+    private function clear_file_line(regex : EReg) : Null<Command>
+    {
+        return DeleteFileLineBreakpoint(regex.matched(1),
+                                        Std.parseInt(regex.matched(2)));
     }
 
     private function continue_current(regex : EReg) : Null<Command>
@@ -1014,8 +1024,8 @@ class CommandLineController implements IController
   { r: ~/^safe[\s]*$/, h: safe },
   { r: ~/^(b|break)[\s]*$/, h : break_now },
   { r: ~/^(b|break)[\s]+([^:]+):[\s]*([0-9]+)[\s]*$/, h : break_file_line },
-  { r: ~/^(b|break)[\s]+([a-zA-Z_][a-zA-Z0-9_]*)[\s]*\.[\s]*([a-zA-Z_][a-zA-Z0-9_]*)[\s]*$/, h : break_class_function },
-  { r: ~/^(b|break)[\s]+([a-zA-Z_][a-zA-Z0-9_]*)[\s]*\.[\s]*(\/.*)$/, h : break_class_regexp },
+  { r: ~/^(b|break)[\s]+(([a-zA-Z0-9_]+\.)+[a-zA-Z0-9_]+)[\s]*$/, h : break_class_function },
+  { r: ~/^(b|break)[\s]+(([a-zA-Z0-9_]+\.)+\/.*)$/, h : break_class_regexp },
   { r: ~/^(b|break)[\s]+(\/.*)$/, h : break_possible_regexps },
   { r: ~/^lb[\s]*$/, h : list_all_breakpoints },
   { r: ~/^(l|list)[\s]+(all[\s]+)?(b|breakpoints)$/, h : list_all_breakpoints },
@@ -1036,12 +1046,13 @@ class CommandLineController implements IController
   { r: ~/^(d|delete)[\s]+([0-9]+)[\s]*$/, h: delete_breakpoint },
   { r: ~/^(d|delete)[\s]+([0-9]+)[\s]*-[\s]*([0-9]+)[\s]*$/,
     h: delete_ranged_breakpoints },
-  { r: ~/^(continue|c)()[\s]*$/, h: continue_current },
-  { r: ~/^(continue|c)([\s]+[0-9]+)[\s]*$/,h: continue_current },
-  { r: ~/^(step|s)()[\s]*$/, h: step_execution },
-  { r: ~/^(step|s)([\s]+[0-9]+)[\s]*$/, h: step_execution },
-  { r: ~/^(next|n)()[\s]*$/, h: next_execution },
-  { r: ~/^(next|n)([\s]+[0-9]+)[\s]*$/, h: next_execution },
+  { r: ~/^clear[\s]+([^:]+):[\s]*([0-9]+)[\s]*$/, h : clear_file_line },
+  { r: ~/^(continue|cont|c)()[\s]*$/, h: continue_current },
+  { r: ~/^(continue|cont|c)([\s]+[0-9]+)[\s]*$/,h: continue_current },
+  { r: ~/^(step|stepi|s)()[\s]*$/, h: step_execution },
+  { r: ~/^(step|stepi|s)([\s]+[0-9]+)[\s]*$/, h: step_execution },
+  { r: ~/^(next|nexti|n)()[\s]*$/, h: next_execution },
+  { r: ~/^(next|nexti|n)([\s]+[0-9]+)[\s]*$/, h: next_execution },
   { r: ~/^(finish|f)()[\s]*$/, h: finish_execution },
   { r: ~/^(finish|f)([\s]+[0-9]+)[\s]*$/, h: finish_execution },
   { r: ~/^(where|w)[\s]*$/, h: where },
@@ -1136,7 +1147,7 @@ class CommandLineController implements IController
      "The files command lists all files in which file:line breakpoints may\n" +
      "be set." },
 
-         { c : "filesfull",     s : "Lists full paths of the debuggable files",
+         { c : "filespath",     s : "Lists full paths of the debuggable files",
  l : "Syntax: files\n\n" +
      "The order of theses paths matches the order of the 'files' command.\n" +
      "Use this to work out which file to edit." },
@@ -1282,6 +1293,10 @@ class CommandLineController implements IController
      "  delete <N>       : Deletes breakpoint N.\n" +
      "  delete <N>-<M>   : Deletes breakpoints in the range N - M, " +
      "inclusive.\n" },
+
+         { c : "clear",    s : "Deletes a breakpoint",
+ l : "Syntax: clear <file>:<line>\n\n" +
+     "The clear command deletes a single file:line breakpoint." },
 
          { c : "continue",  s : "Continues thread execution",
  l : "Syntax: continue/c <N>\n\n" +

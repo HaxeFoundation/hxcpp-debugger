@@ -18,6 +18,7 @@
 
 package debugger;
 
+import debugger.CommandLineController;
 import debugger.HaxeProtocol;
 import debugger.IController;
 
@@ -42,22 +43,57 @@ class HaxeServer
 {
     public static function main()
     {
+        var host : String = null;
         var port : Int = 6972;
 
-        var args = Sys.args();
-        if (args.length > 0) {
-            port = Std.parseInt(args[0]);
+        var argv = Sys.args();
+
+        var iter = 0 ... argv.length;
+        for (i in iter) {
+            var arg = argv[i];
+            switch (argv[i]) {
+            case "-host":
+                if (i == (argv.length - 1)) {
+                    Sys.println("ERROR: -port option requires an argument.");
+                    return -1;
+                }
+                else {
+                    i = iter.next();
+                    host = argv[i];
+                }
+            case "-port":
+                if (i == (argv.length - 1)) {
+                    Sys.println("ERROR: -port option requires an argument.");
+                    return -1;
+                }
+                else {
+                    i = iter.next();
+                    port = Std.parseInt(argv[i]);
+                }
+            default:
+                Sys.println("ERROR - invalid argument: " + argv[i]);
+                Sys.println("Usage: HaxeServer [-host <ip> (defaults to " +
+                            "local host name");
+                Sys.println("                  [-port <port>] (defaults to " +
+                            "6972");
+                Sys.exit(-1);
+            }
         }
 
-        new HaxeServer(new CommandLineController(), port);
+        if (host == null) {
+            host = sys.net.Host.localhost();
+        }
+
+        new HaxeServer(new CommandLineController(), host, port);
+
+        return 0;
     }
 
     /**
      * Creates a server.  This function never returns.
      **/
-    public function new(controller : CommandLineController,
-                        port : Int = 6972)
-                        
+    public function new(controller : CommandLineController, host : String,
+                        port : Int)
     {
         mController = controller;
         mSocketQueue = new Deque<sys.net.Socket>();
@@ -70,13 +106,12 @@ class HaxeServer
         while (listenSocket == null) {
             listenSocket = new sys.net.Socket();
             try {
-                listenSocket.bind
-                    (new sys.net.Host(sys.net.Host.localhost()), port);
+                listenSocket.bind(new sys.net.Host(host), port);
                 listenSocket.listen(1);
             }
             catch (e : Dynamic) {
-                Sys.println("Failed to bind/listen on port " + 
-                            port + ": " + e);
+                Sys.println("Failed to bind/listen on " + host + ":" + port +
+                            ": " + e);
                 Sys.println("Trying again in 3 seconds.");
                 Sys.sleep(3);
                 listenSocket.close();
@@ -90,12 +125,12 @@ class HaxeServer
 
             while (socket == null) {
                 try {
-                    Sys.println("\nListening for client connection ...");
+                    Sys.println("\nListening for client connection on " +
+                                host + ":" + port + " ...");
                     socket = listenSocket.accept();
                 }
                 catch (e : Dynamic) {
-                    Sys.println("Failed to accept connection on port " + 
-                                port + ": " + e);
+                    Sys.println("Failed to accept connection: " + e);
                     Sys.println("Trying again in 1 second.");
                     Sys.sleep(1);
                 }
@@ -125,8 +160,8 @@ class HaxeServer
                     case ThreadCreated(number):
                     case ThreadTerminated(number):
                     case ThreadStarted(number):
-                    case ThreadStopped(number, className, functionName,
-                                       fileName, lineNumber):
+                    case ThreadStopped(number, frameNumber, className,
+                                       functionName, fileName, lineNumber):
                     default:
                         okToShowPrompt = true;
                     }

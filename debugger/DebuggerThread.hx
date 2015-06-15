@@ -20,6 +20,7 @@ package debugger;
 
 import cpp.vm.Debugger;
 import debugger.IController;
+import haxe.CallStack;
 
 #if cpp
 import cpp.vm.Deque;
@@ -158,8 +159,11 @@ class DebuggerThread
                 case FilesFullPath:
                     emit(this.filesFullPath());
 
-                case Classes:
-                    emit(this.classes());
+                case AllClasses:
+                    emit(this.allClasses());
+
+                case Classes(continuation):
+                    emit(this.classes(continuation));
 
                 case Mem:
                     emit(this.mem());
@@ -204,6 +208,9 @@ class DebuggerThread
                 case DeleteBreakpointRange(first, last):
                     emit(this.deleteBreakpointRange(first, last));
 
+                case DeleteFileLineBreakpoint(fileName, lineNumber):
+                    emit(this.deleteFileLineBreakpoint(fileName, lineNumber));
+
                 case BreakNow:
                     emit(this.breakNow());
 
@@ -242,6 +249,9 @@ class DebuggerThread
 
                 case SetExpression(unsafe, lhs, rhs):
                     emit(this.setExpression(unsafe, lhs, rhs));
+
+                case GetStructured(unsafe, expression):
+                    emit(this.getStructured(unsafe, expression));
                 }
             }
         }
@@ -294,8 +304,8 @@ class DebuggerThread
                 mCurrentThreadInfo = null;
             }
             mStateMutex.release();
-            emit(ThreadStopped(threadNumber, className, functionName,
-                               fileName, lineNumber));
+            emit(ThreadStopped(threadNumber, stackFrame, className,
+                               functionName, fileName, lineNumber));
         }
     }
 
@@ -324,11 +334,10 @@ class DebuggerThread
 
     private function filesFullPath() : Message
     {
-        return FilesFullPath( filesToList( Debugger.getFilesFullPath() ) );
+        return Files( filesToList( Debugger.getFilesFullPath() ) );
     }
 
-
-    private function classes() : Message
+    private function allClasses() : Message
     {
         var classes = Debugger.getClasses();
 
@@ -341,6 +350,50 @@ class DebuggerThread
 
         for (f in classes) {
             list = Element(f, list);
+        }
+
+        return AllClasses(list);
+    }
+
+    private function classes(continuation : Null<String>) : Message
+    {
+        var classes = Debugger.getClasses();
+
+        var to_skip = (continuation == null) ? 0 : Std.parseInt(continuation);
+        var initial_to_skip = to_skip;
+        var total = 0;
+        var byte_total = 0;
+        
+        // Accumulate classes to show
+        var classes_to_use = new Array<String>();
+
+        continuation = null;
+
+        for (f in classes) {
+            if (to_skip > 0) {
+                to_skip -= 1;
+                continue;
+            }
+            // Allow at most 10K of classes in a message
+            // Allow at most 100 classes in a message
+            if ((total == 100) || (f.length + byte_total) > (10 * 1024)) {
+                continuation = Std.string(initial_to_skip + total);
+                break;
+            }
+            total += 1;
+            classes_to_use.push(f);
+        }
+
+        // Sort the classes in reverse so that the list can be created easily
+        classes_to_use.sort(function (a : String, b : String) {
+                return Reflect.compare(b, a);
+            });
+
+        var list : ClassList = ((continuation == null) ? 
+                                Terminator : Continued(continuation));
+
+        for (f in classes_to_use) {
+            list = Element(f, hasStaticValue(f), list);
         }
 
         return Classes(list);
@@ -387,29 +440,24 @@ class DebuggerThread
     {
         var threadInfos = Debugger.getThreadInfos();
 
-        mStateMutex.acquire();
-
-        if (number == mCurrentThreadNumber) {
-            mStateMutex.release();
-            return CurrentThread(number);
-        }
-
         for (ti in threadInfos) {
             if (ti.number == number) {
+                mStateMutex.acquire();
                 mCurrentThreadNumber = number;
-                if (ti.status == ThreadInfo.STATUS_RUNNING) {
-                    mCurrentThreadInfo = null;
-                }
-                else {
-                    mCurrentThreadInfo = ti;
-                    mCurrentStackFrame = ti.stack.length - 1;
-                }
+                mCurrentThreadInfo = null;
                 mStateMutex.release();
-                return CurrentThread(number);
+                if (ti.status == ThreadInfo.STATUS_RUNNING) {
+                    if (ti.stack.length == 0) {
+                        return OK;
+                    }
+                }
+                var frameNumber = ti.stack.length - 1;
+                var frame = ti.stack[frameNumber];
+                return ThreadLocation(number, frameNumber, frame.className,
+                                      frame.functionName, frame.fileName,
+                                      frame.lineNumber);
             }
         }
-
-        mStateMutex.release();
 
         return ErrorNoSuchThread(number);
     }
@@ -610,9 +658,11 @@ class DebuggerThread
         for (b in breakpoint.bps()) {
             switch (b) {
             case BP.FileLine(bp, fileName, lineNumber):
-                list = BreakpointLocationList.FileLine(fileName, lineNumber, list);
+                list = BreakpointLocationList.FileLine
+                    (fileName, lineNumber, list);
             case BP.ClassFunction(bp, className, functionName):
-                list = BreakpointLocationList.ClassFunction(className, functionName, list);
+                list = BreakpointLocationList.ClassFunction
+                    (className, functionName, list);
             }
         }
 
@@ -680,9 +730,33 @@ class DebuggerThread
 
     private function deleteBreakpointRange(first, last) : Message
     {
+        return deleteBreakpoints(getBreakpointIds(first, last));
+    }
+
+    private function deleteFileLineBreakpoint(fileName : String,
+                                              lineNumber : Int) : Message
+    {
         var list : BreakpointStatusList = Terminator;
 
-        for (i in getBreakpointIds(first, last)) {
+        var description = fileName + ":" + lineNumber;
+
+        var toRemove : Array<Int> = new Array<Int>();
+
+        for (i in mBreakpoints.keys()) {
+            var bp = mBreakpoints.get(i);
+            if (bp.description == description) {
+                toRemove.push(i);
+            }
+        }
+
+        return deleteBreakpoints(toRemove.iterator());
+    }
+
+    private function deleteBreakpoints(bps : Iterator<Int>) : Message
+    {
+        var list : BreakpointStatusList = Terminator;
+
+        for (i in bps) {
             var breakpoint = mBreakpoints.get(i);
             if (breakpoint == null) {
                 list = Nonexistent(i, list);
@@ -711,7 +785,7 @@ class DebuggerThread
 
         Debugger.continueThreads(mCurrentThreadNumber, count);
 
-        return Continued(count);
+        return OK;
     }
 
     private function step(count) : Message
@@ -808,7 +882,7 @@ class DebuggerThread
 
     private function up(count : Int) : Message
     {
-        if (count < 1) {
+        if (count < 0) {
             return ErrorBadCount(count);
         }
 
@@ -830,12 +904,16 @@ class DebuggerThread
 
         mStateMutex.release();
 
-        return CurrentFrame(count);
+        var frame = threadInfo.stack[mCurrentStackFrame];
+
+        return ThreadLocation(mCurrentThreadNumber, mCurrentStackFrame,
+                              frame.className, frame.functionName,
+                              frame.fileName, frame.lineNumber);
     }
 
     private function down(count : Int) : Message
     {
-        if (count < 1) {
+        if (count < 0) {
             return ErrorBadCount(count);
         }
 
@@ -859,7 +937,11 @@ class DebuggerThread
 
         mStateMutex.release();
 
-        return CurrentFrame(count);
+        var frame = threadInfo.stack[mCurrentStackFrame];
+
+        return ThreadLocation(mCurrentThreadNumber, mCurrentStackFrame,
+                              frame.className, frame.functionName,
+                              frame.fileName, frame.lineNumber);
     }
 
     private function setFrame(number : Int) : Message
@@ -889,7 +971,11 @@ class DebuggerThread
 
         mStateMutex.release();
 
-        return CurrentFrame(number);
+        var frame = threadInfo.stack[mCurrentStackFrame];
+
+        return ThreadLocation(mCurrentThreadNumber, mCurrentStackFrame,
+                              frame.className, frame.functionName,
+                              frame.fileName, frame.lineNumber);
     }
 
     private function variables(unsafe : Bool) : Message
@@ -942,8 +1028,8 @@ class DebuggerThread
             mStateMutex.release();
 
             return Message.Value(StringTools.trim(expression),
-                         TypeHelpers.getValueTypeName(value),
-                         TypeHelpers.getValueString(value));
+                                 TypeHelpers.getValueTypeName(value),
+                                 TypeHelpers.getValueString(value));
         }
         catch (e : Dynamic) {
             mStateMutex.release();
@@ -954,7 +1040,8 @@ class DebuggerThread
                 return ErrorCurrentThreadNotStopped(mCurrentThreadNumber);
             }
             else {
-                return ErrorEvaluatingExpression(e);
+                return ErrorEvaluatingExpression(e.toString() +
+                            CallStack.toString(CallStack.exceptionStack()));
             }
         }
     }
@@ -977,8 +1064,8 @@ class DebuggerThread
             mStateMutex.release();
 
             return Message.Value(StringTools.trim(lhs),
-                         TypeHelpers.getValueTypeName(value),
-                         TypeHelpers.getValueString(value));
+                                 TypeHelpers.getValueTypeName(value),
+                                 TypeHelpers.getValueString(value));
         }
         catch (e : Dynamic) {
             mStateMutex.release();
@@ -989,7 +1076,42 @@ class DebuggerThread
                 return ErrorCurrentThreadNotStopped(mCurrentThreadNumber);
             }
             else {
-                return ErrorEvaluatingExpression(e);
+                return ErrorEvaluatingExpression(e.toString() +
+                            CallStack.toString(CallStack.exceptionStack()));
+            }
+        }
+    }
+    
+    private function getStructured(unsafe : Bool, expression : String) : Message
+    {
+        mStateMutex.acquire();
+        
+        // Just to ensure that the current stack frame is known
+        this.getCurrentThreadInfoLocked();
+
+        try {
+            var value : Dynamic = ExpressionHelper.getValue
+                (expression, { threadNumber : mCurrentThreadNumber,
+                               stackFrame : mCurrentStackFrame,
+                               dbgVars : mDebuggerVariables,
+                               unsafe : unsafe });
+
+            mStateMutex.release();
+
+            return Message.Structured(TypeHelpers.getStructuredValue
+                                      (value, false, expression));
+        }
+        catch (e : Dynamic) {
+            mStateMutex.release();
+            if (e == Debugger.NONEXISTENT_VALUE) {
+                return ErrorEvaluatingExpression("No such value");
+            }
+            else if (e == Debugger.THREAD_NOT_STOPPED) {
+                return ErrorCurrentThreadNotStopped(mCurrentThreadNumber);
+            }
+            else {
+                return ErrorEvaluatingExpression(e.toString() +
+                            CallStack.toString(CallStack.exceptionStack()));
             }
         }
     }
@@ -1021,8 +1143,8 @@ class DebuggerThread
         }
 
         Debugger.stepThread(mCurrentThreadNumber, type, count);
-
-        return Continued(count);
+        
+        return OK;
     }
 
     // Find by a debugger breakpoint number given the breakpoint field of a
@@ -1072,6 +1194,20 @@ class DebuggerThread
         return mCurrentThreadInfo;
     }
 
+    private static function hasStaticValue(className : String) : Bool
+    {
+        var klass = Type.resolveClass(className);
+        if (klass == null) {
+            return false;
+        }
+        for (f in Type.getClassFields(klass)) {
+            if (!Reflect.isFunction(Reflect.field(klass, f))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // This is a mutex that prevents simultaneous access of member variables
     // by the event handler thread and the debugger thread.
     private var mStateMutex : Mutex;
@@ -1104,7 +1240,10 @@ private class TypeHelpers
         case TNull:
             return "NULL";
         case TObject:
-            return "Class<T>";
+            if (Std.is(value, Class)) {
+                return "Class<" + Type.getClassName(cast value) + ">";
+            }
+            return "Anonymous";
         case TInt:
             return "Int";
         case TFunction:
@@ -1146,8 +1285,22 @@ private class TypeHelpers
         case TFunction:
             return Std.string(value);
         case TObject:
-            return ("Class<" + Std.string(value) + ">" +
-                    getClassValueString(value, indent));
+            if (Std.is(value, Class)) {
+                return ("Class<" + Std.string(value) + ">" +
+                        getClassValueString(value, indent));
+            }
+            if (ellipseForObjects) {
+                return "...";
+            }
+            var ret = "{\n";
+            for (f in Reflect.fields(value)) {
+                ret += indent;
+                ret += getValueString(Reflect.field(value, f), indent + "    ",
+                                      ellipseForObjects);
+                ret += "\n";
+            }
+            return ret + indent + "}";
+            
         case TClass(Array):
             var arr : Array<Dynamic> = cast value;
             if (arr.length == 0) {
@@ -1257,6 +1410,151 @@ private class TypeHelpers
         }
 
         return ret + indent + "}";
+    }
+
+    public static function getStructuredValueType(value : Dynamic)
+        : StructuredValueType
+    {
+        switch (Type.typeof(value)) {
+        case TNull, TUnknown:
+            return TypeNull;
+
+        case TInt:
+            return TypeInt;
+
+        case TFloat:
+            return TypeFloat;
+
+        case TBool:
+            return TypeBool;
+
+        case TObject:
+            if (Std.is(value, Class)) {
+                return TypeClass(Type.getClassName(cast value));
+            }
+            var list : StructuredValueTypeList = Terminator;
+            if (value != null) {
+                var arr = [ ];
+                for (f in Reflect.fields(value)) {
+                    arr.push(f);
+                }
+                var i = arr.length - 1;
+                while (i >= 0) {
+                    list = _Type(getStructuredValueType
+                                 (Reflect.field(value, arr[i])), list);
+                    i -= 1;
+                }
+            }
+            return TypeAnonymous(list);
+
+        case TFunction:
+            return TypeFunction;
+
+        case TEnum(e):
+            return TypeEnum(Type.getEnumName(e));
+
+        case TClass(String):
+            return TypeString;
+
+        case TClass(Array):
+            return TypeArray;
+
+        case TClass(c):
+            return TypeInstance(Type.getClassName(c));
+        }
+    }
+
+    public static function getStructuredValue(value : Dynamic,
+                                              elideArraysAndObjects : Bool,
+                                              expression : String)
+        : StructuredValue
+    {
+        switch (Type.typeof(value)) {
+        case TNull, TInt, TFloat,TBool, TFunction, TUnknown:
+            return Single(getStructuredValueType(value), Std.string(value));
+
+        case TEnum(e):
+            return Single(getStructuredValueType(value), Std.string(value));
+
+        case TObject:
+            var klass = Type.resolveClass(Std.string(value));
+            if (klass != null) {
+                if (elideArraysAndObjects) {
+                    return Single(getStructuredValueType(value),
+                                  Std.string(value));
+                }
+                var list : StructuredValueList = Terminator;
+                for (f in Type.getClassFields(klass)) {
+                    if (Reflect.isFunction(Reflect.field(value, f))) {
+                        continue;
+                    }
+                    try {
+                        list = Element(f, getStructuredValue
+                                       (Reflect.getProperty(klass, f), true,
+                                        expression + "." + f), list);
+                    }
+                    catch (e : Dynamic) {
+                    }
+                }
+                return List(Class, list);
+            }
+            if (elideArraysAndObjects) {
+                return Elided(getStructuredValueType(value), expression);
+            }
+            return List(Anonymous, 
+                        getStructuredValueList(value, expression));
+
+        case TClass(String):
+            return Single(TypeClass("String"), Std.string(value));
+            
+        case TClass(Array):
+            if (elideArraysAndObjects) {
+                return Elided(TypeArray, expression);
+            }
+            var list : StructuredValueList = Terminator;
+            var arr = cast(value, Array<Dynamic>);
+            if (arr != null) {
+                var i = arr.length - 1;
+                while (i >= 0) {
+                    var val = arr[i];
+                    var subexp = expression + "[" + i + "]";
+                    list = Element(Std.string(i),
+                                   getStructuredValue(val, true, subexp), list);
+                    i -= 1;
+                }
+            }
+            return List(_Array, list);
+
+        case TClass(c):
+            if (elideArraysAndObjects) {
+                return Elided(getStructuredValueType(value), expression);
+            }
+            return List(Instance(Type.getClassName(c)),
+                        getStructuredValueList(value, expression));
+        }
+    }
+
+    public static function getStructuredValueList(v : Dynamic,
+                                                  expression : String)
+        : StructuredValueList
+    {
+        var list : StructuredValueList = Terminator;
+        if (v == null) {
+            return list;
+        }
+        var arr = [ ];
+        for (f in Reflect.fields(v)) {
+            arr.push(f);
+        }
+        var i = arr.length - 1;
+        while (i >= 0) {
+            var name = arr[i];
+            list = Element(name, getStructuredValue(Reflect.field(v, name), true,
+                                                    expression + "." + name),
+                           list);
+            i -= 1;
+        }
+        return list;
     }
 }
 

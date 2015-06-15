@@ -61,13 +61,16 @@ enum Command
     // Response: Detached
 
     Files;
-    // Response: StringList
+    // Response: Files
 
     FilesFullPath;
-    // Response: StringList
+    // Response: Files
 
-    Classes;
-    // Response: StringList
+    AllClasses;
+    // Response: AllClasses
+
+    Classes(continuation : Null<String>);
+    // Response: Classes
 
     Mem;
     // Response: MemBytes
@@ -79,7 +82,7 @@ enum Command
     // Response: Collected
 
     SetCurrentThread(number : Int);
-    // Response: CurrentThread, ErrorNoSuchThread
+    // Response: ThreadLocation, OK, ErrorNoSuchThread
 
     AddFileLineBreakpoint(fileName : String, lineNumber : Int);
     // Response: FileLineBreakpointNumber, ErrorNoSuchFile
@@ -112,20 +115,23 @@ enum Command
     DeleteBreakpointRange(first : Int, last: Int);
     // Response: BreakpointStatuses
 
+    DeleteFileLineBreakpoint(fileName : String, lineNumber : Int);
+    // Response: BreakpointStatuses
+
     BreakNow;
     // Response: OK
 
     Continue(count : Int);
-    // Response: Continued, ErrorBadCount
+    // Response: OK, ErrorBadCount
 
     Step(count : Int);
-    // Response: Continued, ErrorBadCount
+    // Response: OK, ErrorCurrentThreadNotStopped, ErrorBadCount
 
     Next(count : Int);
-    // Response: Continued, ErrorBadCount
+    // Response: OK, ErrorCurrentThreadNotStopped, ErrorBadCount
 
     Finish(count : Int);
-    // Response: Continued, ErrorBadCount
+    // Response: OK, ErrorCurrentThreadNotStopped, ErrorBadCount
 
     WhereCurrentThread(unsafe : Bool);
     // Response: ThreadsWhere, ErrorCurrentThreadNotStopped
@@ -134,22 +140,25 @@ enum Command
     // Response: ThreadsWhere
 
     Up(count : Int);
-    // Response: CurrentFrame, ErrorCurrentThreadNotStopped, ErrorBadCount
+    // Response: ThreadLocation, ErrorCurrentThreadNotStopped, ErrorBadCount
 
     Down(count : Int);
-    // Response: CurrentFrame, ErrorCurrentThreadNotStopped, ErrorBadCount
+    // Response: ThreadLocation, ErrorCurrentThreadNotStopped, ErrorBadCount
 
     SetFrame(number : Int);
-    // Response: CurrentFrame, ErrorCurrentThreadNotStopped, ErrorBadCount
+    // Response: ThreadLocation, ErrorCurrentThreadNotStopped, ErrorBadCount
 
     Variables(unsafe : Bool);
-    // Response: ErrorCurrentThreadNotStopped, Variables
+    // Response: Variables, ErrorCurrentThreadNotStopped
 
     PrintExpression(unsafe : Bool, expression : String);
     // Response: Value, ErrorCurrentThreadNotStopped, ErrorEvaluatingExpression
 
     SetExpression(unsafe: Bool, lhs : String, rhs : String);
-    // Response: Valuet, ErrorCurrentThreadNotStopped,
+    // Response: Value, ErrorCurrentThreadNotStopped, ErrorEvaluatingExpression
+
+    GetStructured(unsafe : Bool, expression : String);
+    // Response: Structured, ErrorCurrentThreadNotStopped,
     // ErrorEvaluatingExpression
 }
 
@@ -161,6 +170,19 @@ enum StringList
 {
     Terminator;
     Element(string : String, next : StringList);
+}
+
+
+/**
+ * A list of class, possibly truncated so as not to be too large.
+ * If truncated, a subsequent query for the remainder of the list can be done
+ * using the continued expression.
+ **/
+enum ClassList
+{
+    Terminator;
+    Continued(continuation : String);
+    Element(className : String, hasStatics : Bool, next : ClassList);
 }
 
 
@@ -241,6 +263,74 @@ enum ThreadWhereList
 
 
 /**
+ * The type of a value that can be included in a StructuredValue
+ **/
+enum StructuredValueType
+{
+    TypeNull;
+    TypeBool;
+    TypeInt;
+    TypeFloat;
+    TypeString;
+    TypeInstance(className : String);
+    TypeEnum(enumName : String);
+    TypeAnonymous(elements : StructuredValueTypeList);
+    TypeClass(className : String);
+    TypeFunction;
+    TypeArray;
+}
+
+
+/**
+ * A list of structured value types
+ **/
+enum StructuredValueTypeList
+{
+    Terminator;
+    _Type(type : StructuredValueType, next : StructuredValueTypeList);
+}
+
+
+/**
+ * Types of value containers
+ **/
+enum StructuredValueListType
+{
+    Anonymous;
+    Instance(className : String);
+    _Array;
+    Class;
+}
+
+
+/**
+ * A list of structured values
+ **/
+enum StructuredValueList
+{
+    Terminator;
+    Element(name : String, value : StructuredValue, next : StructuredValueList);
+}
+
+
+/**
+ * A structured value, which includes both the type of the value, and a
+ * structured representation of the value
+ **/
+enum StructuredValue
+{
+    // Elided means that the actual value is not presented; its type is
+    // presented, but the value can only be obtained by issuing a
+    // GetStructured command with the given getExpression.
+    Elided(type : StructuredValueType, getExpression : String);
+    // A single value.
+    Single(type : StructuredValueType, value : String);
+    // A list of values
+    List(type : StructuredValueListType, list : StructuredValueList);
+}
+
+
+/**
  * Messages are delivered by the debugger thread in response to Commands and
  * also spuriously for thread events.
  **/
@@ -264,28 +354,29 @@ enum Message
     Exited;
     Detached;
     Files(list : StringList);
-    FilesFullPath(list : StringList);
-    Classes(list : StringList);
+    AllClasses(list : StringList);
+    Classes(list : ClassList);
     MemBytes(bytes : Int);
     Compacted(bytesBefore : Int, bytesAfter : Int);
     Collected(bytesBefore : Int, bytesAfter : Int);
-    CurrentThread(number : Int);
+    ThreadLocation(number : Int, stackFrame : Int, className : String,
+                   functionName : String, fileName : String, lineNumber : Int);
     FileLineBreakpointNumber(number : Int);
     ClassFunctionBreakpointNumber(number : Int, 
                                   unresolvableClasses : StringList);
     Breakpoints(list : BreakpointList);
     BreakpointDescription(number : Int, list : BreakpointLocationList);
     BreakpointStatuses(list : BreakpointStatusList);
-    Continued(count : Int);
     ThreadsWhere(list : ThreadWhereList);
-    CurrentFrame(number : Int);
     Variables(list : StringList);
     Value(expression : String, type : String, value : String);
+    Structured(structuredValue : StructuredValue);
 
     // Asynchronously delivered on thread events
     ThreadCreated(number : Int);
     ThreadTerminated(number : Int);
     ThreadStarted(number : Int);
-    ThreadStopped(number : Int, className : String, functionName : String,
+    ThreadStopped(number : Int, stackFrame : Int,
+                  className : String, functionName : String,
                   fileName : String, lineNumber : Int);
 }

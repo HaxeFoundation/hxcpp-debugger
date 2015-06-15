@@ -122,8 +122,8 @@ class HaxeProtocol
         }
         
         // Validate the length.  Don't allow messages larger than
-        // 100K.
-        if (msg_len > (100 * 1024)) {
+        // 2 MB.
+        if (msg_len > (2 * 1024 * 1024)) {
             throw "Read bad message length: " + msg_len + ".";
         }
         
@@ -132,7 +132,7 @@ class HaxeProtocol
     }
 
     private static var gClientIdentification = 
-        "Haxe debug client v1.0 coming at you!\n\n";
+        "Haxe debug client v1.1 coming at you!\n\n";
     private static var gServerIdentification = 
-        "Haxe debug server v1.0 ready and willing, sir!\n\n";
+        "Haxe debug server v1.1 ready and willing, sir!\n\n";
 }
