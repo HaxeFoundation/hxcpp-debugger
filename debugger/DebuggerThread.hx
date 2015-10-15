@@ -1789,7 +1789,7 @@ private class ExpressionHelper
     private static function getElementValue(e : ElementEnum,
                                             varSrc : DbgVarSrc) : Dynamic
     {
-        var expr = getExpression(e, varSrc);
+        var expr : ExpressionEnum = getExpression(e, varSrc);
 
         switch (expr) {
         case ExpressionEnum.Value(value):
@@ -2083,7 +2083,7 @@ private class ExpressionHelper
         case TClass(c):
             klass = Type.getClass(value);
         default:
-            // The remaining types cannot have fields
+            // The remaining types cannot have fields.
             return null;
         }
 
@@ -2096,9 +2096,13 @@ private class ExpressionHelper
                 break;
             }
         }
+        if (!found) {
+            // Properties aren't found in the above list.
+            found = null != Reflect.getProperty(value, arr[index]);
+        }
 
         if (!found) {
-            // Try the super class
+            // Try the super class.
             klass = Type.getSuperClass(klass);
             if (klass != null) {
                 return resolveField(klass, arr, index);
