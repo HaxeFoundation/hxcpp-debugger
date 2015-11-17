@@ -985,7 +985,7 @@ class DebuggerThread
         // Just to ensure that the current stack frame is known
         this.getCurrentThreadInfoLocked();
 
-        var variables : Array<String> = Debugger.getStackVariables
+        var variables : Array<Dynamic> = Debugger.getStackVariables
             (mCurrentThreadNumber, mCurrentStackFrame, unsafe);
 
         if ((variables.length == 1) &&
@@ -1241,7 +1241,7 @@ private class TypeHelpers
             return "NULL";
         case TObject:
             if (Std.is(value, Class)) {
-                return "Class<" + Type.getClassName(cast value) + ">";
+                return "Class<" + getClassName(cast value) + ">";
             }
             return "Anonymous";
         case TInt:
@@ -1264,7 +1264,7 @@ private class TypeHelpers
         case TClass(DebuggerVariables):
             return "Debugger variables";
         case TClass(c):
-            return Type.getClassName(c);
+            return getClassName(c);
         case TBool:
             return "Bool";
         }
@@ -1430,7 +1430,7 @@ private class TypeHelpers
 
         case TObject:
             if (Std.is(value, Class)) {
-                return TypeClass(Type.getClassName(cast value));
+                return TypeClass(getClassName(cast value));
             }
             var list : StructuredValueTypeList = Terminator;
             if (value != null) {
@@ -1460,8 +1460,43 @@ private class TypeHelpers
             return TypeArray;
 
         case TClass(c):
-            return TypeInstance(Type.getClassName(c));
+            return TypeInstance(getClassName(c));
         }
+    }
+
+    public static function getClassName(klass : Class<Dynamic>) : String {
+        var className : String = "<unknown class name>";
+        if (null != klass) {
+           var klassName : String = Type.getClassName(klass);
+            if (null != klassName && 0 != klassName.length) {
+                className = klassName;
+            }
+        }
+        return className;
+    }
+
+    private static function sortString(a : String, b : String)
+        : Int
+    {
+        return Reflect.compare(a.toLowerCase, b.toLowerCase);
+    }
+
+    private static function getClassFieldNames(value : Dynamic, klass : Class<Dynamic>)
+        : Array<String>
+    {
+        // We walk the class hierarchy to find all statics.
+        var staticNames : Array<String> = new Array<String>();
+        var clazz : Class<Dynamic> = klass;
+        while (clazz != null) {
+            for (f in Type.getClassFields(clazz)) {
+                if (Reflect.isFunction(Reflect.field(value, f))) {
+                    continue;
+                }
+                staticNames.push(f);
+            }
+            clazz = Type.getSuperClass(clazz);
+        }
+        return staticNames;
     }
 
     public static function getStructuredValue(value : Dynamic,
@@ -1484,14 +1519,20 @@ private class TypeHelpers
                                   Std.string(value));
                 }
                 var list : StructuredValueList = Terminator;
-                for (f in Type.getClassFields(klass)) {
-                    if (Reflect.isFunction(Reflect.field(value, f))) {
-                        continue;
-                    }
+                for (f in getClassFieldNames(value, klass)) {
                     try {
-                        list = Element(f, getStructuredValue
-                                       (Reflect.getProperty(klass, f), true,
-                                        expression + "." + f), list);
+                        var fieldValue : StructuredValue = null;
+                        var property : Dynamic = Reflect.getProperty(klass, f);
+                        if (null == property) {
+                            // Variable was inlined.
+                            fieldValue = Single(getStructuredValueType(null),
+                                                Std.string("No instances (inlined)"));
+                        }
+                        else {
+                            fieldValue = getStructuredValue(property, true,
+                                expression + "." + f);
+                        }
+                        list = Element(f, fieldValue, list);
                     }
                     catch (e : Dynamic) {
                     }
@@ -1529,7 +1570,7 @@ private class TypeHelpers
             if (elideArraysAndObjects) {
                 return Elided(getStructuredValueType(value), expression);
             }
-            return List(Instance(Type.getClassName(c)),
+            return List(Instance(getClassName(c)),
                         getStructuredValueList(value, expression));
         }
     }
@@ -1549,11 +1590,34 @@ private class TypeHelpers
         var i = arr.length - 1;
         while (i >= 0) {
             var name = arr[i];
-            list = Element(name, getStructuredValue(Reflect.field(v, name), true,
-                                                    expression + "." + name),
-                           list);
+            var dottedExpression = expression + "." + name;
+            var structuredValue : StructuredValue;
+            // Don't allow a failed access to stop processing for the whole
+            // structure.
+            try {
+                structuredValue = getStructuredValue(Reflect.field(v, name),
+                                        true,
+                                        dottedExpression);
+            }
+            catch (e : Dynamic) {
+                structuredValue = getStructuredValue(
+                                        ErrorEvaluatingExpression(e),
+                                        true,
+                                        dottedExpression);
+            }
+            list = Element(name, structuredValue, list);
             i -= 1;
         }
+
+        // Add static values, if any.
+        var klass = Type.getClass(v);
+        var staticNames : Array<String> = getClassFieldNames(v, klass);
+        if (null != staticNames && staticNames.length > 0) {
+            var staticList = getStructuredValue(klass, false,
+                                                getClassName(klass));
+            list = Element("static variables", staticList, list);
+        }
+
         return list;
     }
 }
@@ -2027,6 +2091,7 @@ private class ExpressionHelper
             throw value;
         }
 
+        var resolveIndex : Int = 0;
         if (value == Debugger.NONEXISTENT_VALUE) {
             // Try to get it as a field of "this"
             value = Debugger.getStackVariableValue
@@ -2039,17 +2104,7 @@ private class ExpressionHelper
                 throw value;
             }
 
-            if (value == null) {
-                throw "Null dereference " + arr[0];
-            }
-
-            var result = resolveField(value, arr, 0);
-
-            if (result == null) {
-                throw "No value " + path;
-            }
-
-            return result;
+            resolveIndex = 0;
         }
         // Else got the value
         else {
@@ -2058,18 +2113,20 @@ private class ExpressionHelper
                 return ExpressionEnum.StackRef(arr[0]);
             }
 
-            if (value == null) {
-                throw "Null dereference " + arr[0];
-            }
-
-            var result = resolveField(value, arr, 1);
-
-            if (result == null) {
-                throw "No value " + path;
-            }
-
-            return result;
+            resolveIndex = 1;
         }
+
+        if (value == null) {
+            throw "Null dereference " + arr[0];
+        }
+
+        var result = resolveField(value, arr, resolveIndex);
+
+        if (result == null) {
+            throw "No value for " + path;
+        }
+
+        return result;
     }
 
     private static function resolveField(value : Dynamic, arr : Array<String>,
@@ -2081,7 +2138,7 @@ private class ExpressionHelper
         case TObject:
             klass = value;
         case TClass(c):
-            klass = Type.getClass(value);
+            klass = Type.getClass(value); // Kills the process if value is empty
         default:
             // The remaining types cannot have fields.
             return null;
@@ -2089,25 +2146,22 @@ private class ExpressionHelper
 
         var found = false;
 
-        for (f in Type.getInstanceFields(klass).concat
-                 (Type.getClassFields(klass))) {
-            if (f == arr[index]) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            // Properties aren't found in the above list.
-            found = null != Reflect.getProperty(value, arr[index]);
-        }
+        // Check the properties list first, which checks all instance vars.
+        found = null != Reflect.getProperty(value, arr[index]);
 
-        if (!found) {
-            // Try the super class.
-            klass = Type.getSuperClass(klass);
-            if (klass != null) {
-                return resolveField(klass, arr, index);
+        // Now check the static variables.  Have to check superclasses, too.
+        while (!found && null != klass) {
+            // The Type.getXXXFields can return null.
+            var cFields = Type.getClassFields(klass);
+            if (null != cFields) {
+                for (f in cFields) {
+                    if (f == arr[index]) {
+                        found = true;
+                        break;
+                    }
+                }
             }
-            return null;
+            klass = Type.getSuperClass(klass);
         }
 
         if (index == (arr.length - 1)) {
@@ -2327,7 +2381,7 @@ private class ElementParser
                 }
             }
             // Else, it's not a path, it's a normal field reference
-            if (gFieldRegex.match(field)) {
+            if (gBackendFieldRegex.match(field)) {
                 var element = parse(str.substring(0, endIndex), beginColumn);
                 return ElementEnum.Field(element, field, beginColumn,
                                          beginColumn + (str.length - 1));
@@ -2514,8 +2568,313 @@ private class ElementParser
         return -1;
     }
 
+    // The hxcpp backend adds some fields that include spaces, such as
+    // "assertion failed", "critical assertion failed",
+    // "external assertion failed"
+    private static var gBackendFieldRegex = ~/^[\s]*([a-zA-Z_][a-zA-Z0-9_\s]*)[\s]*$/;
     private static var gFieldRegex = ~/^[\s]*([a-zA-Z_][a-zA-Z0-9_]*)[\s]*$/;
     private static var gPathRegex =
     ~/^[\s]*[a-zA-Z_][a-zA-Z0-9_]*([\s]*\.[\s]*[a-zA-Z_][a-zA-Z0-9_]*)*[\s]*$/;
     private static var gFloatRegex = ~/^[\s]*(-)?([0-9]*)\.([0-9]*)[\s]*$/;
+}
+
+
+/**
+ * The DebugLog class was developed to ease Sys.println style debugging in
+ * the debugger itself.  Use it like so:
+ *
+ *   DebugLog.log(1,"Some text");
+ *
+ * You can package values into an array in order to print variables without
+ * forcing the type to be inferred prior to their actual use:
+ *
+ *   DebugLog.log(1,["var = ", myvar, " array=", ary]);
+ *
+ * Note that values in arrays are catenated into a single string.  If you
+ * desire to see the normal haxe array output, use the slightly less efficient:
+ *
+ *   DebugLog.log(1,["ary = ", Std.string(ary)]);
+ *
+ * To print an exception, including the stack where it occurred, call:
+ *
+ *   DebugLog.logException(1, exception, Callstack.exceptionStack());
+ *
+ * To get indented logs, based upon the call stack depth, use setStackAnchor
+ * in the function that is your starting point:
+ *
+ *   DebugLog.setStackAnchor();
+ *
+ * To programmatically control the level of logging or disable it altogether:
+ *
+ *   DebugLog.gDebugLevel = 0; // 0 Disables
+ *
+ */
+private class DebugLog {
+
+    /**
+     * Log a message to the console log.
+     *
+     * @level - Minimum log level at which this message will be logged.
+     * @msg -- Message to display.  Msg will be converted to a string. If
+     *         msg is an array, then the values of the array will be converted
+     *         to Strings and catenated into a single message.
+     */
+    public static function log(level : Int, msg : Dynamic) : Void {
+        logUsingPreviousFrame(level, 1, msg);
+    }
+
+
+    /**
+     * Log a message to the console log.
+     *
+     * Always skips itself, so the number of frames to skip is from the
+     * caller's perspective. (1 for itself, and more if needed.)
+     *
+     * @level - Minimum log level at which this message will be logged.
+     * @framesToSkip - Number of frames to skip for determining function to
+     *                 be logged against.
+     * @msg -- Message to display.  Msg will be converted to a string. If
+     *         msg is an array, then the values of the array will be converted
+     *         to Strings and catenated into a single message.
+     */
+    public static function logUsingPreviousFrame(level : Int,
+                                                 framesToSkip : Int,
+                                                 msg : Dynamic) : Void
+    {
+        if (checkLevel(level) && null != msg) {
+            var buf : StringBuf = new StringBuf();
+            buf.add(getIndentPrefix(1));
+            buf.add(getCallerName(framesToSkip + 1));// Skip ourselves.
+            buf.add(": ");
+            buf.add(convertValueToString(msg));
+            Sys.println(buf.toString());
+        }
+    }
+
+    /**
+     * Log an exception and, optionally, it's call stack.
+     *
+     * We need to append the exceptionStack manually because calling into new
+     * functions messes with the exception stack, (Callstack.exceptionStack()
+     * returns the stack between the current code position and the last thrown
+     * exception,) thus we get an incorrect stack if we try to detect it from
+     * anywhere except within the function that caught the exception.
+     *
+     * @level - minimum debug level at which the exception will be logged.
+     * @exception - exception to log.
+     * @stack - callstack to display (usually, CallStack.exceptionStack())
+     */
+    public static function logException(level : Int, exception : Dynamic,
+                                        ?stack : Array<haxe.StackItem> ) : Void {
+        if (null == exception) {
+            log(1,"Internal error: No exception presented to log.  Called from "
+                    + getCallerName(1));
+            return;
+        }
+        if (checkLevel(level) && null!= exception) {
+            if (null != stack) {
+                stack.reverse(); // For some reason, it's in reverse order.
+            }
+
+            var buf : StringBuf = new StringBuf();
+            buf.add(getIndentPrefix(1));
+            buf.add(getCallerName(1));
+            buf.add(": Caught exception: ");
+            buf.add(convertValueToString(exception));
+            buf.add(CallStack.toString(stack));
+            Sys.println(buf.toString());
+        }
+    }
+
+    public static function setStackAnchor() {
+        gIndentAnchor = getCaller(1);
+    }
+
+    public static function clearStackAnchor() {
+        gIndentAnchor = null;
+    }
+
+    private static function checkLevel(level : Int) : Bool {
+        return (0 <= level && level <= gDebugLevel);
+    }
+
+    private static function getIndentPrefix(framesToSkip : Int) : String {
+        var stack: Array<StackItem> = CallStack.callStack();
+        var found: Bool = false;
+        var prefix : StringBuf = new StringBuf();
+        for (i in (framesToSkip + 1) ... stack.length) {
+            if (compareStackItems(stack[i], gIndentAnchor)) {
+                found = true;
+                break;
+            }
+            prefix.add("  ");
+        }
+        return found ? prefix.toString() : "";
+    }
+
+    private static function compareStackItems(lFrame : StackItem,
+                                              rFrame : StackItem) : Bool {
+        if (null == lFrame || null == rFrame) {
+            return false;
+        }
+
+        var equal : Bool = false;
+        if (Type.enumConstructor(lFrame) == Type.enumConstructor(rFrame)){
+            var rParams : Array<Dynamic> = Type.enumParameters(rFrame);
+            switch(lFrame) {
+                case CFunction:
+                    equal = true; // Not much we can do with this.
+                case Module(m):
+                    equal =  m == rParams[0];
+                case FilePos(stackitem, file, line):
+                    equal = compareStackItems(stackitem, rParams[0]);
+                case Method(classname, method):
+                    equal = classname == rParams[0] && method == rParams[1];
+                case LocalFunction(v):
+                    equal = v == rParams[0];
+            }
+        }
+        return equal;
+    }
+
+    private static function stackItemToName(frame : StackItem) : String {
+        var name : String;
+
+        switch(frame) {
+            case CFunction:
+                name = "<C Function>";
+            case Module(m):
+                name = m;
+            case FilePos(stackitem, file, line):
+                if (stackitem != null) {
+                    name = stackItemToName(stackitem);
+                } else {
+                    name = "(" + file + "," + line + ")";
+                }
+            case Method(classname, method):
+                name = method;
+            case LocalFunction(v):
+                name = "<Local Function " + v + ">";
+        }
+        return name;
+    }
+
+    private static function getCallerName(framesToSkip : Int) : String {
+        var callerName = "<Unknown function>";
+        var callerFrame = getCaller(framesToSkip+1);
+        if (null != callerFrame) {
+            try {
+                callerName = stackItemToName(callerFrame);
+            } catch (e: Dynamic) {
+                // Ignore it.
+            }
+        }
+        return callerName;
+    }
+
+    private static function getCaller(framesToSkip : Int) : StackItem {
+        var stack : Array<StackItem> = CallStack.callStack();
+
+        // Always ignore this function.
+        framesToSkip += 1;
+
+        var targetFrame = framesToSkip; // stack.start + framesToSkip
+        if (targetFrame >= 0 && targetFrame < stack.length) {
+            try {
+                return stack[targetFrame];
+            } catch (e:Dynamic) {
+                // Ignore it.
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Converts values to strings. Array entries are catenated.
+     */
+    private static function convertValueToString(value : Dynamic) : String {
+        var v : StringBuf = new StringBuf();
+        v.add("");
+        try {
+            var iter : Iterator<Dynamic> = getIterator(value);
+            if (null != iter) {
+                while (iter.hasNext()) {
+                    v.add(convertValueToString(iter.next()));
+                }
+            } else {
+                v.add(Std.string(value));
+            }
+        } catch ( e : Dynamic ) {
+            v.add("<Error converting value to string: ");
+            v.add(e.toString());
+            v.add(">");
+        }
+        return v.toString();
+    }
+
+    /**
+     * Check to see if an item is an iterable value, such as an array.
+     *
+     * @returns true if the value supports an Iterable<T> or Iterator<T>
+     *          interface, though this function cannot guarantee that
+     *          the functions actually take the proper type and number of
+     *          arguments.
+     */
+    private static function getIterator(value) : Iterator<Dynamic> {
+        if (null == value) {
+            return null;
+        }
+        try {
+            var fld = Reflect.field(value, "iterator");
+            if (null != fld && Reflect.isFunction(fld)) {
+                return value.iterator();
+            }
+
+            fld = Reflect.field(value, "next");
+            if (null != fld && Reflect.isFunction(fld)) {
+                fld = Reflect.field(value, "hasNext");
+                if (null != fld && Reflect.isFunction(fld)) {
+                    return value;
+                }
+            }
+        } catch (e : Dynamic) {
+            log(4, "Exception detecting Iterator");
+            // Ignore it.
+        }
+        return null;
+    }
+
+    public static var gDebugLevel = 3;
+    public static var gIndentAnchor : StackItem;
+}
+
+private class DebugTimer {
+    public function new(logLevel : Int = 1, ?message : Dynamic) : Void {
+        mLogLevel = logLevel;
+        mMessage = message;
+        mStartTime = Date.now().getTime();
+    }
+
+    public function logDuration(?msg : Dynamic) : Void {
+        var now = Date.now().getTime();
+        var m : Array<Dynamic> =
+                    ["Duration: ", now - mStartTime, " : ", mMessage];
+        if (null != msg) {
+            m.push(msg);
+        }
+        DebugLog.logUsingPreviousFrame(mLogLevel, 1, m);
+    }
+
+    public function logStart(?msg : Dynamic) : Void {
+        var m : Array<Dynamic> = ["Starting timer ", mMessage];
+        if (null != msg) {
+            m.push(msg);
+        }
+        DebugLog.logUsingPreviousFrame(mLogLevel, 1, m);
+        mStartTime = Date.now().getTime();
+    }
+
+    private var mLogLevel : Int;
+    private var mStartTime : Float;
+    private var mMessage: Dynamic;
 }

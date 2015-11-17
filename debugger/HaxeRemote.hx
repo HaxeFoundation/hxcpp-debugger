@@ -22,11 +22,11 @@ import debugger.HaxeProtocol;
 import debugger.IController;
 
 #if cpp
+import cpp.vm.Thread;
 import cpp.vm.Mutex;
-#elseif neko
-import neko.vm.Mutex;
+import cpp.vm.Debugger;
 #else
-#error "HaxeRemote supported only for cpp and neko targets"
+#error "HaxeRemote supported only for cpp targets"
 #end
 
 
@@ -56,37 +56,41 @@ class HaxeRemote implements IController
      **/
     public function new(startStopped : Bool, host : String, port : Int = 6972)
     {
+        LogDebuggerMessage("Starting App side debugger support.");
+
         mHost = host;
         mPort = port;
         mSocket = null;
-        mSocketMutex = new Mutex();
-        mAcceptMutex = new Mutex();
+
+        // Connect here.  We won't reconnect if there is a socket error.
+        connect();
+
+        // Spin up the write thread *before* the debugger thread.  Otherwise,
+        // getNextCommand and acceptMessage are called before the write
+        // thread is ready to queue messages.
+        mWriteThread = Thread.create(function() {this.writeThreadLoop();});
+
         mThread = new DebuggerThread(this, startStopped);
+    }
+
+    private function closeSocket() {
+        if (mSocket != null) {
+            mSocket.close();
+            mSocket = null;
+        }
     }
 
     public function getNextCommand() : Command
     {
         while (true) {
-            var socket;
-            mSocketMutex.acquire();
-            if (mSocket == null) {
-                this.connectLocked();
-            }
-            socket = mSocket;
-            mSocketMutex.release();
             try {
-                return HaxeProtocol.readCommand(socket.input);
+                return HaxeProtocol.readCommand(mSocket.input);
             }
             catch (e : Dynamic) {
-                Sys.println("Failed to read command from server at " + 
+                LogDebuggerMessage("Failed to read command from server at " +
                             mHost + ":" + mPort + ": " + e);
-                Sys.println("Closing connection and trying again.");
-                socket.close();
-                mSocketMutex.acquire();
-                if (mSocket == socket) {
-                    mSocket = null;
-                }
-                mSocketMutex.release();
+                closeSocket();
+                throw("Debugger Failure: Error reading socket: " + e);
             }
         }
     }
@@ -100,64 +104,83 @@ class HaxeRemote implements IController
      **/
     public function acceptMessage(message : Message) : Void
     {
-        while (true) {
-            var socket;
-            mSocketMutex.acquire();
-            if (mSocket == null) {
-                this.connectLocked();
-            }
-            socket = mSocket;
-            mSocketMutex.release();
-            mAcceptMutex.acquire();
-            try {
-                HaxeProtocol.writeMessage(socket.output, message);
-                mAcceptMutex.release();
-                return;
-            }
-            catch (e : Dynamic) {
-                mAcceptMutex.release();
-                Sys.println("Failed to deliver message to server at " + 
-                            mHost + ":" + mPort + ": " + e);
-                Sys.println("Closing connection and trying again.");
-                socket.close();
-                mSocketMutex.acquire();
-                if (mSocket == socket) {
-                    mSocket = null;
-                }
-                mSocketMutex.release();
-            }
+        // We actually write on a separate thread because the write is
+        // blocking.  If we wait on such a write, and the other side of the
+        // socket is also trying to write, then we deadlock.
+
+        try {
+            mWriteThread.sendMessage(message);
+        }
+        catch(msg : String) {
+            var outmsg = "Failure sending message to debugger write thread:"
+                            + msg;
+            LogDebuggerMessage(outmsg);
+            closeSocket();
+            throw(outmsg);
         }
     }
 
-    private function connectLocked()
+    private function writeThreadLoop() : Void
     {
-        mSocket = new sys.net.Socket();
+        // Have to turn off debugging on this thread, or else it stops, too.
+        Debugger.enableCurrentThreadDebugging(false);
+
+        try {
+            var message : Message;
+            while (true) {
+                // Get the next message to write.  Block until there is
+                // something to do.
+                message = Thread.readMessage(true);
+                HaxeProtocol.writeMessage(mSocket.output, message);
+            }
+        }
+        catch (msg : String ) {
+            var errmsg = "An error occurred on the write thread loop " +
+                         "(sending messages to the debugger): " + msg;
+            LogDebuggerMessage(errmsg);
+            LogDebuggerMessage("Closing connection.");
+            closeSocket();
+            mWriteThread = null;
+            // Throwing from here will (should!) finish the thread off.
+            throw(errmsg);
+        }
+    }
+
+    private function connect()
+    {
+        var socket : sys.net.Socket = new sys.net.Socket();
+
         while (true) {
             try {
                 var host = new sys.net.Host(mHost);
                 if (host.ip == 0) {
                     throw "Name lookup error.";
                 }
-                mSocket.connect(host, mPort);
-                HaxeProtocol.writeClientIdentification(mSocket.output);
-                HaxeProtocol.readServerIdentification(mSocket.input);
-                Sys.println("Connected to debugging server at " + 
+                socket.connect(host, mPort);
+                HaxeProtocol.writeClientIdentification(socket.output);
+                HaxeProtocol.readServerIdentification(socket.input);
+                LogDebuggerMessage("Connected to debugging server at " +
                             mHost + ":" + mPort + ".");
+
+                mSocket = socket;
                 return;
             }
             catch (e : Dynamic) {
-                Sys.println("Failed to connect to debugging server at " +
+                LogDebuggerMessage("Failed to connect to debugging server at " +
                             mHost + ":" + mPort + " : " + e);
             }
-            Sys.println("Trying again in 3 seconds.");
+            LogDebuggerMessage("Trying again in 3 seconds.");
             Sys.sleep(3);
         }
     }
 
+    private static function LogDebuggerMessage(message : String) {
+        Sys.println("Debugger:" + message);
+    }
+    
     private var mHost : String;
     private var mPort : Int;
     private var mSocket : sys.net.Socket;
-    private var mSocketMutex : Mutex;
-    private var mAcceptMutex : Mutex;
     private var mThread : DebuggerThread;
+    private var mWriteThread : Thread;
 }
