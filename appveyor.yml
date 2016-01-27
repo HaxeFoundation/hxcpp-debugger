@@ -1,0 +1,25 @@
+version: "{build}"
+
+environment:
+  global:
+    HAXELIB_ROOT: C:\projects\haxelib
+
+install:
+  # Install the haxe chocolatey package (https://chocolatey.org/packages/haxe)
+  - cinst haxe -version 3.2.1 -y
+  - RefreshEnv
+  # Setup haxelib
+  - mkdir "%HAXELIB_ROOT%"
+  - haxelib setup "%HAXELIB_ROOT%"
+  # Install dependencies
+  - haxelib install hxcpp > log.txt || type log.txt && cmd /C exit 1
+  - haxelib dev hxcpp-debugger .
+  - haxelib list
+
+build: off
+
+test_script:
+  # Type check all modules in the debugger package.
+  - haxe -cpp bin --no-output --macro "include(\"debugger\")"
+  # Compile debugger.HaxeServer.
+  - haxe -cpp bin -main debugger.HaxeServer

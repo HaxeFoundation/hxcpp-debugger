@@ -1,0 +1,22 @@
+language: haxe
+
+haxe:
+  - development
+  - 3.2.1
+
+os:
+  - linux
+  - osx
+
+sudo: false
+
+install:
+  - haxelib install hxcpp
+  - haxelib dev hxcpp-debugger .
+  - haxelib list
+
+script:
+  # Type check all modules in the debugger package.
+  - haxe -cpp bin --no-output --macro 'include("debugger")'
+  # Compile debugger.HaxeServer.
+  - haxe -cpp bin -main debugger.HaxeServer
