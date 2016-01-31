@@ -162,15 +162,10 @@ enum Command
     // ErrorEvaluatingExpression
 }
 
-
 /**
- * A list of strings
+ * An array of strings
  **/
-enum StringList
-{
-    Terminator;
-    Element(string : String, next : StringList);
-}
+typedef StringArray = Array<String>;
 
 
 /**
@@ -344,7 +339,7 @@ enum Message
     ErrorBadClassNameRegex(details : String);
     ErrorBadFunctionNameRegex(details : String);
     ErrorNoMatchingFunctions(className : String, functionName : String,
-                             unresolvableClasses : StringList);
+                             unresolvableClasses : StringArray);
     ErrorBadCount(count : Int);
     ErrorCurrentThreadNotStopped(threadNumber : Int);
     ErrorEvaluatingExpression(details : String);
@@ -353,8 +348,8 @@ enum Message
     OK;
     Exited;
     Detached;
-    Files(list : StringList);
-    AllClasses(list : StringList);
+    Files(list : StringArray);
+    AllClasses(list : StringArray);
     Classes(list : ClassList);
     MemBytes(bytes : Int);
     Compacted(bytesBefore : Int, bytesAfter : Int);
@@ -363,12 +358,12 @@ enum Message
                    functionName : String, fileName : String, lineNumber : Int);
     FileLineBreakpointNumber(number : Int);
     ClassFunctionBreakpointNumber(number : Int, 
-                                  unresolvableClasses : StringList);
+                                  unresolvableClasses : StringArray);
     Breakpoints(list : BreakpointList);
     BreakpointDescription(number : Int, list : BreakpointLocationList);
     BreakpointStatuses(list : BreakpointStatusList);
     ThreadsWhere(list : ThreadWhereList);
-    Variables(list : StringList);
+    Variables(list : StringArray);
     Value(expression : String, type : String, value : String);
     Structured(structuredValue : StructuredValue);
 

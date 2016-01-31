@@ -314,34 +314,22 @@ class DebuggerThread
         mController.acceptMessage(message);
     }
 
-    private function filesToList(files:Array<String>) : StringList
-    {
-        var list : StringList = Terminator;
-
-        // Preserve order
-        for (f in 0...files.length) {
-            list = Element(files[files.length-1-f], list);
-        }
-
-        return list;
-    }
-
     private function files() : Message
     {
         // Preserve order to match filesFullPath
-        return Files( filesToList( Debugger.getFiles() ) );
+        return Files( Debugger.getFiles() );
     }
 
     private function filesFullPath() : Message
     {
-        return Files( filesToList( Debugger.getFilesFullPath() ) );
+        return Files( Debugger.getFilesFullPath() );
     }
 
     private function allClasses() : Message
     {
         var classes = Debugger.getClasses();
 
-        var list : StringList = Terminator;
+        var list : StringArray = new StringArray();
 
         // Sort the classes in reverse so that the list can be created easily
         classes.sort(function (a : String, b : String) {
@@ -349,7 +337,7 @@ class DebuggerThread
             });
 
         for (f in classes) {
-            list = Element(f, list);
+            list.push(f);
         }
 
         return AllClasses(list);
@@ -524,10 +512,10 @@ class DebuggerThread
             var breakpoint = mBreakpointsByDescription.get(desc);
             breakpoint.enable();
             return ClassFunctionBreakpointNumber
-                (breakpoint.number, Terminator);
+                (breakpoint.number, null);
         }
 
-        var badClasses : StringList = Terminator;
+        var badClasses : StringArray = new StringArray();
 
         var classNames = Debugger.getClasses();
         for (cn in classNames) {
@@ -553,7 +541,7 @@ class DebuggerThread
             }
             var klass = Type.resolveClass(cn);
             if (klass == null) {
-                badClasses = Element(cn, badClasses);
+                badClasses.push(cn);
             }
             else {
                 this.breakFunction(desc, cn, klass, functionName,
@@ -996,7 +984,7 @@ class DebuggerThread
 
         mStateMutex.release();
 
-        var list : StringList = Terminator;
+        var list : StringArray = new StringArray();
 
         // Sort the variables in reverse so that the list can be created easily
         variables.sort(function (a : String, b : String) {
@@ -1004,7 +992,7 @@ class DebuggerThread
             });
 
         for (f in variables) {
-            list = Element(f, list);
+            list.push(f);
         }
 
         return Variables(list);
