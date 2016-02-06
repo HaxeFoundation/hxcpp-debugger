@@ -177,8 +177,8 @@ class DebuggerThread
                 case SetCurrentThread(number):
                     emit(this.setCurrentThread(number));
 
-                case AddFileLineBreakpoint(fileName, lineNumber):
-                    emit(this.addFileLineBreakpoint(fileName, lineNumber));
+                case AddFileLineBreakpoint(fileName, lineNumber, columnNumber):
+                    emit(this.addFileLineBreakpoint(fileName, lineNumber, columnNumber));
 
                 case AddClassFunctionBreakpoint(className, functionName):
                     emit(this.addClassFunctionBreakpoint
@@ -279,7 +279,9 @@ class DebuggerThread
                                        stackFrame : Int,
                                        className : String,
                                        functionName : String,
-                                       fileName : String, lineNumber : Int)
+                                       fileName : String,
+                                       lineNumber : Int, columnNumber: Int
+                                       )
     {
         switch (event) {
         case Debugger.THREAD_CREATED:
@@ -305,7 +307,7 @@ class DebuggerThread
             }
             mStateMutex.release();
             emit(ThreadStopped(threadNumber, stackFrame, className,
-                               functionName, fileName, lineNumber));
+                               functionName, fileName, lineNumber, columnNumber));
         }
     }
 
@@ -363,7 +365,7 @@ class DebuggerThread
         var initial_to_skip = to_skip;
         var total = 0;
         var byte_total = 0;
-        
+
         // Accumulate classes to show
         var classes_to_use = new Array<String>();
 
@@ -389,7 +391,7 @@ class DebuggerThread
                 return Reflect.compare(b, a);
             });
 
-        var list : ClassList = ((continuation == null) ? 
+        var list : ClassList = ((continuation == null) ?
                                 Terminator : Continued(continuation));
 
         for (f in classes_to_use) {
@@ -455,7 +457,7 @@ class DebuggerThread
                 var frame = ti.stack[frameNumber];
                 return ThreadLocation(number, frameNumber, frame.className,
                                       frame.functionName, frame.fileName,
-                                      frame.lineNumber);
+                                      frame.lineNumber, frame.columnNumber);
             }
         }
 
@@ -463,7 +465,7 @@ class DebuggerThread
     }
 
     private function addFileLineBreakpoint(fileName : String,
-                                           lineNumber : Int) : Message
+                                           lineNumber : Int, columnNumber : Int) : Message
     {
         var desc = (fileName + ":" + lineNumber);
 
@@ -475,7 +477,7 @@ class DebuggerThread
                         new Breakpoint(mNextBreakpointNumber++, desc);
                     mBreakpoints.set(breakpoint.number, breakpoint);
                     mBreakpointsByDescription.set(desc, breakpoint);
-                    breakpoint.addFileLine(fileName, lineNumber);
+                    breakpoint.addFileLine(fileName, lineNumber, columnNumber);
                     break;
                 }
             }
@@ -908,7 +910,7 @@ class DebuggerThread
 
         return ThreadLocation(mCurrentThreadNumber, mCurrentStackFrame,
                               frame.className, frame.functionName,
-                              frame.fileName, frame.lineNumber);
+                              frame.fileName, frame.lineNumber, frame.columnNumber);
     }
 
     private function down(count : Int) : Message
@@ -941,7 +943,7 @@ class DebuggerThread
 
         return ThreadLocation(mCurrentThreadNumber, mCurrentStackFrame,
                               frame.className, frame.functionName,
-                              frame.fileName, frame.lineNumber);
+                              frame.fileName, frame.lineNumber, frame.columnNumber);
     }
 
     private function setFrame(number : Int) : Message
@@ -975,7 +977,7 @@ class DebuggerThread
 
         return ThreadLocation(mCurrentThreadNumber, mCurrentStackFrame,
                               frame.className, frame.functionName,
-                              frame.fileName, frame.lineNumber);
+                              frame.fileName, frame.lineNumber, frame.columnNumber);
     }
 
     private function variables(unsafe : Bool) : Message
@@ -1081,11 +1083,11 @@ class DebuggerThread
             }
         }
     }
-    
+
     private function getStructured(unsafe : Bool, expression : String) : Message
     {
         mStateMutex.acquire();
-        
+
         // Just to ensure that the current stack frame is known
         this.getCurrentThreadInfoLocked();
 
@@ -1143,7 +1145,7 @@ class DebuggerThread
         }
 
         Debugger.stepThread(mCurrentThreadNumber, type, count);
-        
+
         return OK;
     }
 
@@ -1300,7 +1302,7 @@ private class TypeHelpers
                 ret += "\n";
             }
             return ret + indent + "}";
-            
+
         case TClass(Array):
             var arr : Array<Dynamic> = cast value;
             if (arr.length == 0) {
@@ -1542,12 +1544,12 @@ private class TypeHelpers
             if (elideArraysAndObjects) {
                 return Elided(getStructuredValueType(value), expression);
             }
-            return List(Anonymous, 
+            return List(Anonymous,
                         getStructuredValueList(value, expression));
 
         case TClass(String):
             return Single(TypeClass("String"), Std.string(value));
-            
+
         case TClass(Array):
             if (elideArraysAndObjects) {
                 return Elided(TypeArray, expression);
@@ -1719,10 +1721,10 @@ private class Breakpoint
         }
     }
 
-    public function addFileLine(fileName : String, lineNumber : Int)
+    public function addFileLine(fileName : String, lineNumber : Int, columnNumber : Int)
     {
         mBps.push(BP.FileLine(Debugger.addFileLineBreakpoint
-                              (fileName, lineNumber), fileName, lineNumber));
+                              (fileName, lineNumber, columnNumber), fileName, lineNumber));
     }
 
     public function addClassFunction(className : String, functionName : String)
@@ -1754,7 +1756,7 @@ private class Breakpoint
         for (b in oldBps) {
             switch (b) {
             case BP.FileLine(bp, fileName, lineNumber):
-                this.addFileLine(fileName, lineNumber);
+                this.addFileLine(fileName, lineNumber, 1);
             case BP.ClassFunction(bp, className, functionName):
                 this.addClassFunction(className, functionName);
             }

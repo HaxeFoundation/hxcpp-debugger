@@ -8,7 +8,7 @@
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -84,7 +84,7 @@ enum Command
     SetCurrentThread(number : Int);
     // Response: ThreadLocation, OK, ErrorNoSuchThread
 
-    AddFileLineBreakpoint(fileName : String, lineNumber : Int);
+    AddFileLineBreakpoint(fileName : String, lineNumber : Int, columnNumber: Int);
     // Response: FileLineBreakpointNumber, ErrorNoSuchFile
 
     AddClassFunctionBreakpoint(className : String, functionName : String);
@@ -360,9 +360,10 @@ enum Message
     Compacted(bytesBefore : Int, bytesAfter : Int);
     Collected(bytesBefore : Int, bytesAfter : Int);
     ThreadLocation(number : Int, stackFrame : Int, className : String,
-                   functionName : String, fileName : String, lineNumber : Int);
+                   functionName : String, fileName : String, lineNumber : Int,
+                   columnNumber: Int);
     FileLineBreakpointNumber(number : Int);
-    ClassFunctionBreakpointNumber(number : Int, 
+    ClassFunctionBreakpointNumber(number : Int,
                                   unresolvableClasses : StringList);
     Breakpoints(list : BreakpointList);
     BreakpointDescription(number : Int, list : BreakpointLocationList);
@@ -378,5 +379,5 @@ enum Message
     ThreadStarted(number : Int);
     ThreadStopped(number : Int, stackFrame : Int,
                   className : String, functionName : String,
-                  fileName : String, lineNumber : Int);
+                  fileName : String, lineNumber : Int, columnNumber: Int);
 }
