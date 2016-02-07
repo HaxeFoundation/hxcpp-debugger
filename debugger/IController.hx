@@ -115,7 +115,7 @@ enum Command
     DeleteBreakpointRange(first : Int, last: Int);
     // Response: BreakpointStatuses
 
-    DeleteFileLineBreakpoint(fileName : String, lineNumber : Int);
+    DeleteFileLineBreakpoint(fileName : String, lineNumber : Int, columnNumber : Int);
     // Response: BreakpointStatuses
 
     BreakNow;
@@ -203,7 +203,7 @@ enum BreakpointList
 enum BreakpointLocationList
 {
     Terminator;
-    FileLine(fileName : String, lineNumber : Int,
+    FileLine(fileName : String, lineNumber : Int, columnNumber : Int,
              next : BreakpointLocationList);
     ClassFunction(className : String, functionName : String,
                   next : BreakpointLocationList);
@@ -246,7 +246,7 @@ enum FrameList
 {
     Terminator;
     Frame(isCurrent : Bool, number : Int, className : String,
-          functionName : String, fileName : String, lineNumber : Int,
+          functionName : String, fileName : String, lineNumber : Int, columnNumber : Int,
           next : FrameList);
 }
 

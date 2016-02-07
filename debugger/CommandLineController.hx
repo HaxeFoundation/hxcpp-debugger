@@ -175,7 +175,7 @@ class CommandLineController implements IController
             }
 
             if (!matched) {
-                Sys.println("Invalid command.");
+                Sys.println("Invalid command./178");
                 continue;
             }
 
@@ -269,7 +269,7 @@ class CommandLineController implements IController
                             fileName, lineNumber, columnNumber):
             Sys.println("*     " + frameNumber + " : " +
                         className + "." + functionName + "() at " +
-                        fileName + ":" + lineNumber);
+                        fileName + ":" + lineNumber + ": " + columnNumber);
 
         case FileLineBreakpointNumber(number):
             Sys.println("Breakpoint " + number + " set and enabled.");
@@ -305,7 +305,7 @@ class CommandLineController implements IController
                 switch (list) {
                 case Terminator:
                     break;
-                case FileLine(fileName, lineNumber, next):
+                case FileLine(fileName, lineNumber, columnNumber, next):
                     Sys.println("    Breaks at " + fileName + ":" +
                                 lineNumber + ".");
                     list = next;
@@ -385,7 +385,7 @@ class CommandLineController implements IController
                         case Terminator:
                             break;
                         case Frame(isCurrent, number, className, functionName,
-                                   fileName, lineNumber, next):
+                                   fileName, lineNumber, columnNumber, next):
                             Sys.print((isCurrent ? "* " : "  "));
                             Sys.print(padStringRight(Std.string(number), 5));
                             Sys.print(" : " + className + "." + functionName +
@@ -425,7 +425,7 @@ class CommandLineController implements IController
                            fileName, lineNumber, columnNumber):
             Sys.println("\nThread " + number + " stopped in " +
                         className + "." + functionName + "() at " +
-                        fileName + ":" + lineNumber + "," + columnNumber + "...");
+                        fileName + ":" + lineNumber + ":" + columnNumber + ".");
         }
     }
 
@@ -611,11 +611,11 @@ class CommandLineController implements IController
     {
         return BreakNow;
     }
-
+    //CS116 - changed 0 to 1
     private function break_file_line(regex : EReg) : Null<Command>
     {
         return AddFileLineBreakpoint(regex.matched(2),
-                                     Std.parseInt(regex.matched(3)), 0);
+                                     Std.parseInt(regex.matched(3)), Std.parseInt(regex.matched(4)));
     }
 
     private function break_class_function(regex : EReg) : Null<Command>
@@ -638,7 +638,7 @@ class CommandLineController implements IController
         index = findSlash(value, 1);
 
         if (index == -1) {
-            Sys.println("Invalid command.");
+            Sys.println("Invalid command./641");
             return null;
         }
 
@@ -654,7 +654,7 @@ class CommandLineController implements IController
         var index = findSlash(value, 1);
 
         if (index == -1) {
-            Sys.println("Invalid command.");
+            Sys.println("Invalid command./657");
             return null;
         }
 
@@ -675,7 +675,7 @@ class CommandLineController implements IController
             var index = findSlash(value, 1);
 
             if (index == -1) {
-                Sys.println("Invalid command.");
+                Sys.println("Invalid command./678");
                 return null;
             }
 
@@ -683,7 +683,7 @@ class CommandLineController implements IController
                 (className, value.substr(0, index + 1));
         }
         else {
-            Sys.println("Invalid command.");
+            Sys.println("Invalid command./686");
             return null;
         }
     }
@@ -762,7 +762,7 @@ class CommandLineController implements IController
     private function clear_file_line(regex : EReg) : Null<Command>
     {
         return DeleteFileLineBreakpoint(regex.matched(1),
-                                        Std.parseInt(regex.matched(2)));
+                                        Std.parseInt(regex.matched(2)), 0);
     }
 
     private function continue_current(regex : EReg) : Null<Command>
@@ -1023,7 +1023,7 @@ class CommandLineController implements IController
   { r: ~/^unsafe[\s]*$/, h: unsafe },
   { r: ~/^safe[\s]*$/, h: safe },
   { r: ~/^(b|break)[\s]*$/, h : break_now },
-  { r: ~/^(b|break)[\s]+([^:]+):[\s]*([0-9]+)[\s]*$/, h : break_file_line },
+  { r: ~/^(b|break)[\s]+([^:]+):[\s]*([0-9]+):[\s]*([0-9]+)[\s]*$/, h : break_file_line },
   { r: ~/^(b|break)[\s]+(([a-zA-Z0-9_]+\.)+[a-zA-Z0-9_]+)[\s]*$/, h : break_class_function },
   { r: ~/^(b|break)[\s]+(([a-zA-Z0-9_]+\.)+\/.*)$/, h : break_class_regexp },
   { r: ~/^(b|break)[\s]+(\/.*)$/, h : break_possible_regexps },
