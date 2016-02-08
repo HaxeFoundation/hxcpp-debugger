@@ -618,6 +618,12 @@ class CommandLineController implements IController
                                      Std.parseInt(regex.matched(3)), Std.parseInt(regex.matched(4)));
     }
 
+    private function break_file_line(regex : EReg) : Null<Command>
+    {
+        return AddFileLineBreakpoint(regex.matched(2),
+                                     Std.parseInt(regex.matched(3)), -1);
+    }
+
     private function break_class_function(regex : EReg) : Null<Command>
     {
         var full = regex.matched(2);
@@ -1024,6 +1030,7 @@ class CommandLineController implements IController
   { r: ~/^safe[\s]*$/, h: safe },
   { r: ~/^(b|break)[\s]*$/, h : break_now },
   { r: ~/^(b|break)[\s]+([^:]+):[\s]*([0-9]+):[\s]*([0-9]+)[\s]*$/, h : break_file_line_col },
+  { r: ~/^(b|break)[\s]+([^:]+):[\s]*([0-9]+)[\s]*$/, h : break_file_line },
   { r: ~/^(b|break)[\s]+(([a-zA-Z0-9_]+\.)+[a-zA-Z0-9_]+)[\s]*$/, h : break_class_function },
   { r: ~/^(b|break)[\s]+(([a-zA-Z0-9_]+\.)+\/.*)$/, h : break_class_regexp },
   { r: ~/^(b|break)[\s]+(\/.*)$/, h : break_possible_regexps },
