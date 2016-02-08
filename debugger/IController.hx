@@ -359,9 +359,11 @@ enum Message
     MemBytes(bytes : Int);
     Compacted(bytesBefore : Int, bytesAfter : Int);
     Collected(bytesBefore : Int, bytesAfter : Int);
+    //cs116
     ThreadLocation(number : Int, stackFrame : Int, className : String,
                    functionName : String, fileName : String, lineNumber : Int,
                    columnNumber: Int);
+    //cs116
     FileLineBreakpointNumber(number : Int);
     ClassFunctionBreakpointNumber(number : Int,
                                   unresolvableClasses : StringList);

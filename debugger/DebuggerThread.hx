@@ -975,7 +975,6 @@ class DebuggerThread
         mStateMutex.release();
 
         var frame = threadInfo.stack[mCurrentStackFrame];
-
         return ThreadLocation(mCurrentThreadNumber, mCurrentStackFrame,
                               frame.className, frame.functionName,
                               frame.fileName, frame.lineNumber, frame.columnNumber);
