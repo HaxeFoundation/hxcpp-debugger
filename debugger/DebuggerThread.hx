@@ -467,8 +467,10 @@ class DebuggerThread
     private function addFileLineBreakpoint(fileName : String,
                                            lineNumber : Int, columnNumber : Int) : Message
     {
-        var desc = (fileName + ":" + lineNumber + ":" + columnNumber);
-        //trace(desc);
+        var desc = (fileName + ":" + lineNumber);
+        if(columnNumber != -1) {
+          desc = desc + ":" + columnNumber;
+        }
 
         if (!mBreakpointsByDescription.exists(desc)) {
             var files = Debugger.getFiles();
