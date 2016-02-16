@@ -390,7 +390,7 @@ class CommandLineController implements IController
                             Sys.print(padStringRight(Std.string(number), 5));
                             Sys.print(" : " + className + "." + functionName +
                                       "()");
-                            Sys.println(" at " + fileName + ":" + lineNumber);
+                            Sys.println(" at " + fileName + ":" + lineNumber + ":" + columnNumber);
                             hasStack = true;
                             frameList = next;
                         }

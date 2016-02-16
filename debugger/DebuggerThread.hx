@@ -468,7 +468,7 @@ class DebuggerThread
                                            lineNumber : Int, columnNumber : Int) : Message
     {
         var desc = (fileName + ":" + lineNumber + ":" + columnNumber);
-        trace(desc);
+        //trace(desc);
 
         if (!mBreakpointsByDescription.exists(desc)) {
             var files = Debugger.getFiles();
@@ -741,6 +741,7 @@ class DebuggerThread
     {
         var list : BreakpointStatusList = Terminator;
 
+        //CS116
         var description = fileName + ":" + lineNumber;
 
         var toRemove : Array<Int> = new Array<Int>();
