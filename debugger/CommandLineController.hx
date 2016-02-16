@@ -269,7 +269,7 @@ class CommandLineController implements IController
                             fileName, lineNumber, columnNumber):
             Sys.println("*     " + frameNumber + " : " +
                         className + "." + functionName + "() at " +
-                        fileName + ":" + lineNumber + ": " + columnNumber);
+                        fileName + ":" + lineNumber + ":" + columnNumber);
 
         case FileLineBreakpointNumber(number):
             Sys.println("Breakpoint " + number + " set and enabled.");
@@ -307,7 +307,7 @@ class CommandLineController implements IController
                     break;
                 case FileLine(fileName, lineNumber, columnNumber, next):
                     Sys.println("    Breaks at " + fileName + ":" +
-                                lineNumber + ".");
+                                lineNumber + ":" + columnNumber + ".");
                     list = next;
                 case ClassFunction(className, functionName, next):
                     Sys.println("    Breaks at " + className + "." +
