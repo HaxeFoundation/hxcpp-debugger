@@ -306,21 +306,12 @@ class CommandLineController implements IController
                 case Terminator:
                     break;
                 case FileLine(fileName, lineNumber, columnNumber, next):
-<<<<<<< HEAD
                     var desc = "    Breaks at " + fileName + ":" + lineNumber;
                     if(columnNumber != -1) {
                       desc = desc + ":" + columnNumber;
                     }
                     desc = desc + ".";
                     Sys.println(desc);
-=======
-                    Sys.print("    Breaks at " + fileName + ":" +
-                                lineNumber);
-                    if (columnNumber != -1) {
-                        Sys.print(":" + columnNumber);
-                    }
-                    Sys.println(".");
->>>>>>> b12d2e4c49a7338a5b9e2530c7abb7bd3f5ec063
                     list = next;
                 case ClassFunction(className, functionName, next):
                     Sys.println("    Breaks at " + className + "." +
