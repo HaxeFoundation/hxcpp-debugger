@@ -306,8 +306,12 @@ class CommandLineController implements IController
                 case Terminator:
                     break;
                 case FileLine(fileName, lineNumber, columnNumber, next):
-                    Sys.println("    Breaks at " + fileName + ":" +
-                                lineNumber + ":" + columnNumber + ".");
+                    var desc = "    Breaks at " + fileName + ":" + lineNumber;
+                    if(columnNumber != -1) {
+                      desc = desc + ":" + columnNumber;
+                    }
+                    desc = desc + ".";
+                    Sys.println(desc);
                     list = next;
                 case ClassFunction(className, functionName, next):
                     Sys.println("    Breaks at " + className + "." +
@@ -1210,11 +1214,11 @@ class CommandLineController implements IController
      "printed or modified.  To leave safe mode, use the 'unsafe' command." },
 
          { c : "break",     s : "Sets a breakpoint",
- l : "Syntax: break <file>:<line>/<class>.<function>\n\n" +
+ l : "Syntax: break <file>:<line>/<file>:<line>:<column>/<class>.<function>\n\n" +
      "The break (or b) command sets a breakpoint.  Breakpoints take effect\n" +
      "immediately and all threads will break on all breakpoints whenever\n" +
      "the breakpoint is hit.\n" +
-     "Breakpoints may be specified either by file and line number, or by\n" +
+     "Breakpoints may be specified either by file and line (/column) number, or by\n" +
      "class name and function name.\n" +
      "In the class.function case, the class name, or function name or\n" +
      "both, may optionally be a regular expression which will cause the\n" +
@@ -1224,6 +1228,8 @@ class CommandLineController implements IController
      "be set can be printed using the 'classes' command.\n\nExamples:\n\n" +
      "  b Foo.hx:10\n" +
      "      Sets a breakpoint in file Foo.hx line 10.\n\n" +
+     "  b Foo.hx:10:5\n" +
+     "      Sets a breakpoint in file Foo.hx line 10, column 5.\n\n" +
      "  b SomeClass.SomeFunction\n " +
      "      Sets a breakpoint on entry to the function " +
      "SomeClass.SomeFunction.\n\n" +
@@ -1325,9 +1331,9 @@ class CommandLineController implements IController
          { c : "next",      s : "Single steps a thread in current frame",
  l : "Syntax: next/n [N]\n\n" +
      "The next (or n) command steps the current thread over a function\n" +
-     "call.  If the next line of Haxe code to execute is a function call,\n" +
+     "call.  If the next expression to execute is a function call,\n" +
      "the entire function is executed and the thread stops before\n" +
-     "executing the line of code after the function call.  If the next line\n" +
+     "executing the expression after the function call.  If the next line\n" +
      "of Haxe code is not a function, the next command behaves exactly like\n" +
      "the step command.  The optional parameter N specifies how many\n" +
      "function calls or Haxe lines of code to step.  If not provided, the\n" +
