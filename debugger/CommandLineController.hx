@@ -185,6 +185,7 @@ class CommandLineController implements IController
                 mLastCommand = command;
                 return command;
             }
+
         }
     }
 
@@ -427,10 +428,12 @@ class CommandLineController implements IController
 
         case ThreadStopped(number, frameNumber, className, functionName,
                            fileName, lineNumber, columnNumber):
+
             Sys.println("\nThread " + number + " stopped in " +
                         className + "." + functionName + "() at " +
                         fileName + ":" + lineNumber + ":" + columnNumber + ".");
-        }
+
+       }
     }
 
     private function exit(regex : EReg) : Null<Command>
