@@ -34,6 +34,7 @@ interface IController
      *
      * @return the next command for the debugger to execute
      **/
+
     public function getNextCommand() : Command;
 
     /**
@@ -384,4 +385,5 @@ enum Message
     ThreadStopped(number : Int, stackFrame : Int,
                   className : String, functionName : String,
                   fileName : String, lineNumber : Int, columnNumber: Int);
+    
 }

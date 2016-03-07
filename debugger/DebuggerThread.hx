@@ -216,12 +216,15 @@ class DebuggerThread
 
                 case Continue(count):
                     emit(this.continueCurrent(count));
+                    wasteTime();
 
                 case Step(count):
                     emit(this.step(count));
+                    wasteTime();
 
                 case Next(count):
                     emit(this.next(count));
+                    wasteTime();
 
                 case NextLine(count):
                     emit(this.nextLine(count));
@@ -278,6 +281,18 @@ class DebuggerThread
         gStarted = false;
     }
 
+    /**
+     * Solves a strange bug with the command line prompt, where in some cases
+     * the main loop of CommandLineController prints the prompt before the
+     * main loop of DebuggerThread has had time to emit() a Message to stdout.
+     * Specifically, this problem must be addressed when calling 'step', 'next'
+     * and 'continue'.
+    */
+    private function wasteTime() {
+       var x = 0;
+       while(x < 90000) x++;
+    }
+
     private function handleThreadEvent(threadNumber : Int, event : Int,
                                        stackFrame : Int,
                                        className : String,
@@ -311,6 +326,7 @@ class DebuggerThread
             mStateMutex.release();
             emit(ThreadStopped(threadNumber, stackFrame, className,
                                functionName, fileName, lineNumber, columnNumber));
+
         }
     }
 
@@ -470,10 +486,8 @@ class DebuggerThread
     private function addFileLineBreakpoint(fileName : String,
                                            lineNumber : Int, columnNumber : Int) : Message
     {
-        var desc = (fileName + ":" + lineNumber);
-        if(columnNumber != -1) {
-          desc = desc + ":" + columnNumber;
-        }
+        var desc = (fileName + ":" + lineNumber + ":" + columnNumber);
+        trace(desc);
 
         if (!mBreakpointsByDescription.exists(desc)) {
             var files = Debugger.getFiles();
@@ -746,7 +760,6 @@ class DebuggerThread
     {
         var list : BreakpointStatusList = Terminator;
 
-        //CS116
         var description = fileName + ":" + lineNumber;
 
         var toRemove : Array<Int> = new Array<Int>();

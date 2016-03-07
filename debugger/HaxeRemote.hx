@@ -8,7 +8,7 @@
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -177,7 +177,7 @@ class HaxeRemote implements IController
     private static function LogDebuggerMessage(message : String) {
         Sys.println("Debugger:" + message);
     }
-    
+
     private var mHost : String;
     private var mPort : Int;
     private var mSocket : sys.net.Socket;
