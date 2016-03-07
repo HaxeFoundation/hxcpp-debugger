@@ -223,6 +223,9 @@ class DebuggerThread
                 case Next(count):
                     emit(this.next(count));
 
+                case NextLine(count):
+                    emit(this.nextLine(count));
+
                 case Finish(count):
                     emit(this.finish(count));
 
@@ -804,6 +807,10 @@ class DebuggerThread
         return this.stepExecution(count, Debugger.STEP_OVER);
     }
 
+    private function nextLine(count) : Message {
+      return this.stepExecutionLine(count, Debugger.STEP_OVER);
+    }
+
     private function finish(count) : Message
     {
         return this.stepExecution(count, Debugger.STEP_OUT);
@@ -1150,6 +1157,16 @@ class DebuggerThread
         Debugger.stepThread(mCurrentThreadNumber, type, count);
 
         return OK;
+    }
+
+    private function stepExecutionLine(count : Int, type : Int) : Message {
+      if (count < 1) {
+          return ErrorBadCount(count);
+      }
+
+      Debugger.stepThreadLine(mCurrentThreadNumber, type);
+
+      return OK;
     }
 
     // Find by a debugger breakpoint number given the breakpoint field of a

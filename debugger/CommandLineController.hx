@@ -797,6 +797,10 @@ class CommandLineController implements IController
                     Std.parseInt(regex.matched(2)) : 1);
     }
 
+    private function nextLine_execution(regex : EReg) : Null<Command> {
+      return NextLine(1);
+    }
+
     private function finish_execution(regex : EReg) : Null<Command>
     {
         return Finish((regex.matched(2).length > 0) ?
@@ -1063,6 +1067,7 @@ class CommandLineController implements IController
   { r: ~/^(step|stepi|s)()[\s]*$/, h: step_execution },
   { r: ~/^(step|stepi|s)([\s]+[0-9]+)[\s]*$/, h: step_execution },
   { r: ~/^(next|nexti|n)()[\s]*$/, h: next_execution },
+  { r: ~/^(nextLine|nextl|nl)()[\s]*$/, h: nextLine_execution },
   { r: ~/^(next|nexti|n)([\s]+[0-9]+)[\s]*$/, h: next_execution },
   { r: ~/^(finish|f)()[\s]*$/, h: finish_execution },
   { r: ~/^(finish|f)([\s]+[0-9]+)[\s]*$/, h: finish_execution },
