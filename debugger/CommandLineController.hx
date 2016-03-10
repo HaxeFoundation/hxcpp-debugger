@@ -34,6 +34,7 @@ class CommandLineController implements IController
      * Creates a new command line interface.  This interface will read and
      * parse Commands from stdin, and emit debugger output to stdout.
      **/
+    var current_file = "";
     public function new()
     {
         untyped __global__.__hxcpp_dbg_setPrint(true);
@@ -73,7 +74,7 @@ class CommandLineController implements IController
             var input = mInputs[mInputs.length - 1];
 
             if (mInputs.length == 1) {
-                Sys.print("\n" + mStoredCommands.length + "> " +
+                Sys.print("\n" + mStoredCommands.length + ":" + " [" + current_file + "]" + "> " +
                           carriedCommandLine);
             }
 
@@ -430,6 +431,7 @@ class CommandLineController implements IController
         case ThreadStopped(number, frameNumber, className, functionName,
                            fileName, lineNumber, columnNumber):
 
+            current_file = fileName;
             if(untyped __global__.__hxcpp_dbg_getPrint()) {
               Sys.println("\nThread " + number + " stopped in " +
                           className + "." + functionName + "() at " +
@@ -627,10 +629,20 @@ class CommandLineController implements IController
                                      Std.parseInt(regex.matched(3)), Std.parseInt(regex.matched(4)));
     }
 
+    private function break_file_line_col_current(regex: EReg) : Null<Command> {
+      return AddFileLineBreakpoint(current_file, Std.parseInt(regex.matched(2)),
+                                                 Std.parseInt(regex.matched(3)));
+    }
+
     private function break_file_line(regex : EReg) : Null<Command>
     {
         return AddFileLineBreakpoint(regex.matched(2),
                                      Std.parseInt(regex.matched(3)), -1);
+    }
+
+    private function break_file_line_current(regex : EReg) : Null<Command> {
+      return AddFileLineBreakpoint(current_file,
+                                   Std.parseInt(regex.matched(2)), -1);
     }
 
     private function break_class_function(regex : EReg) : Null<Command>
@@ -1044,7 +1056,9 @@ class CommandLineController implements IController
   { r: ~/^safe[\s]*$/, h: safe },
   { r: ~/^(b|break)[\s]*$/, h : break_now },
   { r: ~/^(b|break)[\s]+([^:]+):[\s]*([0-9]+):[\s]*([0-9]+)[\s]*$/, h : break_file_line_col },
+  { r: ~/^(b|break)[\s][\s]*([0-9]+):[\s]*([0-9]+)[\s]*$/, h : break_file_line_col_current },
   { r: ~/^(b|break)[\s]+([^:]+):[\s]*([0-9]+)[\s]*$/, h : break_file_line },
+  { r: ~/^(b|break)[\s]+([0-9]+)[\s]*$/, h : break_file_line_current },
   { r: ~/^(b|break)[\s]+(([a-zA-Z0-9_]+\.)+[a-zA-Z0-9_]+)[\s]*$/, h : break_class_function },
   { r: ~/^(b|break)[\s]+(([a-zA-Z0-9_]+\.)+\/.*)$/, h : break_class_regexp },
   { r: ~/^(b|break)[\s]+(\/.*)$/, h : break_possible_regexps },
@@ -1241,7 +1255,10 @@ class CommandLineController implements IController
      "  b Foo.hx:10\n" +
      "      Sets a breakpoint in file Foo.hx line 10.\n\n" +
      "  b Foo.hx:10:5\n" +
+     "Sets a breakpoint on line ten column 5 of the current file.\n\n" +
      "      Sets a breakpoint in file Foo.hx line 10, column 5.\n\n" +
+     "  b 10:5\n" +
+            "Sets a breakpoint on line ten column 5 of the current file.\n\n" +
      "  b SomeClass.SomeFunction\n " +
      "      Sets a breakpoint on entry to the function " +
      "SomeClass.SomeFunction.\n\n" +
@@ -1449,7 +1466,11 @@ class CommandLineController implements IController
        "  $.baz : Array<Int>[4] = [ 1, 2, 3, 4 ]\n" +
        "  $.foo : Int = 1\n\n" +
        "  9> set someValue.arr = $.baz\n\n" +
-       "  someValue.arr : Array<Int>[4] = [ 1, 2, 3, 4 ]" }
+       "  someValue.arr : Array<Int>[4] = [ 1, 2, 3, 4 ]" },
+       { c : "nextLine",      s : "Advances executution to the next line.",
+l : "Syntax: nextLine/nl/nextl [lines]\n\n" +
+   "Advances the execution until the next line is reached.  If a number is " +
+   "specified, then execution will advance by that number of lines." }
          ];
 }
 
