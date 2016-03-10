@@ -36,6 +36,7 @@ class CommandLineController implements IController
      **/
     public function new()
     {
+        untyped __global__.__hxcpp_dbg_setPrint(true);
         Sys.println("");
         Sys.println("-=- hxcpp built-in debugger in command line mode -=-");
         Sys.println("-=-      Use 'help' for help if you need it.     -=-");
@@ -175,7 +176,7 @@ class CommandLineController implements IController
             }
 
             if (!matched) {
-                Sys.println("Invalid command./178");
+                Sys.println("Invalid command.");
                 continue;
             }
 
@@ -429,10 +430,11 @@ class CommandLineController implements IController
         case ThreadStopped(number, frameNumber, className, functionName,
                            fileName, lineNumber, columnNumber):
 
-            Sys.println("\nThread " + number + " stopped in " +
-                        className + "." + functionName + "() at " +
-                        fileName + ":" + lineNumber + ":" + columnNumber + ".");
-
+            if(untyped __global__.__hxcpp_dbg_getPrint()) {
+              Sys.println("\nThread " + number + " stopped in " +
+                          className + "." + functionName + "() at " +
+                          fileName + ":" + lineNumber + ":" + columnNumber + ".");
+            }
        }
     }
 
@@ -651,7 +653,7 @@ class CommandLineController implements IController
         index = findSlash(value, 1);
 
         if (index == -1) {
-            Sys.println("Invalid command./641");
+            Sys.println("Invalid command.");
             return null;
         }
 
@@ -667,7 +669,7 @@ class CommandLineController implements IController
         var index = findSlash(value, 1);
 
         if (index == -1) {
-            Sys.println("Invalid command./657");
+            Sys.println("Invalid command.");
             return null;
         }
 
@@ -688,7 +690,7 @@ class CommandLineController implements IController
             var index = findSlash(value, 1);
 
             if (index == -1) {
-                Sys.println("Invalid command./678");
+                Sys.println("Invalid command.");
                 return null;
             }
 
@@ -696,7 +698,7 @@ class CommandLineController implements IController
                 (className, value.substr(0, index + 1));
         }
         else {
-            Sys.println("Invalid command./686");
+            Sys.println("Invalid command.");
             return null;
         }
     }
@@ -801,7 +803,8 @@ class CommandLineController implements IController
     }
 
     private function nextLine_execution(regex : EReg) : Null<Command> {
-      return NextLine(1);
+      return NextLine((regex.matched(2).length > 0) ?
+                  Std.parseInt(regex.matched(2)) : 1);
     }
 
     private function finish_execution(regex : EReg) : Null<Command>
@@ -1071,6 +1074,7 @@ class CommandLineController implements IController
   { r: ~/^(step|stepi|s)([\s]+[0-9]+)[\s]*$/, h: step_execution },
   { r: ~/^(next|nexti|n)()[\s]*$/, h: next_execution },
   { r: ~/^(nextLine|nextl|nl)()[\s]*$/, h: nextLine_execution },
+  { r: ~/^(nextLine|nextl|nl)([\s]+[0-9]+)[\s]*$/, h: nextLine_execution },
   { r: ~/^(next|nexti|n)([\s]+[0-9]+)[\s]*$/, h: next_execution },
   { r: ~/^(finish|f)()[\s]*$/, h: finish_execution },
   { r: ~/^(finish|f)([\s]+[0-9]+)[\s]*$/, h: finish_execution },

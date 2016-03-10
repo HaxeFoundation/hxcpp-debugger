@@ -1177,7 +1177,7 @@ class DebuggerThread
           return ErrorBadCount(count);
       }
 
-      Debugger.stepThreadLine(mCurrentThreadNumber, type);
+      Debugger.stepThreadLine(mCurrentThreadNumber, type, count);
 
       return OK;
     }
