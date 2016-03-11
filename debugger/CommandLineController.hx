@@ -1368,6 +1368,11 @@ class CommandLineController implements IController
      "function calls or Haxe lines of code to step.  If not provided, the\n" +
      " default is 1." },
 
+     { c : "nextLine",      s : "Steps a thread to a new line.",
+l : "Syntax: nextLine/nl/nextl [lines]\n\n" +
+    "Steps through a thread until a new is reached.  If a number is\n" +
+    "specified, then execution will advance by that number of lines." },
+
          { c : "finish",    s : "Continues until return from frame",
  l : "Syntax: finish/f [N]\n\n" +
      "The finish (or f) command causes the current thread to finish\n" +
@@ -1466,11 +1471,7 @@ class CommandLineController implements IController
        "  $.baz : Array<Int>[4] = [ 1, 2, 3, 4 ]\n" +
        "  $.foo : Int = 1\n\n" +
        "  9> set someValue.arr = $.baz\n\n" +
-       "  someValue.arr : Array<Int>[4] = [ 1, 2, 3, 4 ]" },
-       { c : "nextLine",      s : "Advances executution to the next line.",
-l : "Syntax: nextLine/nl/nextl [lines]\n\n" +
-   "Advances the execution until the next line is reached.  If a number is " +
-   "specified, then execution will advance by that number of lines." }
+       "  someValue.arr : Array<Int>[4] = [ 1, 2, 3, 4 ]" }
          ];
 }
 
