@@ -38,6 +38,7 @@ class CommandLineController implements IController
     public function new()
     {
         untyped __global__.__hxcpp_dbg_setPrint(true);
+        untyped __global__.__hxcpp_dbg_setPrintReady(true);
         Sys.println("");
         Sys.println("-=- hxcpp built-in debugger in command line mode -=-");
         Sys.println("-=-      Use 'help' for help if you need it.     -=-");
@@ -74,8 +75,14 @@ class CommandLineController implements IController
             var input = mInputs[mInputs.length - 1];
 
             if (mInputs.length == 1) {
-                Sys.print("\n" + mStoredCommands.length + ":" + " [" + current_file + "]" + "> " +
-                          carriedCommandLine);
+                while(true) {
+                  if(untyped __global__.__hxcpp_dbg_getPrintReady()) {
+                    Sys.print("\n" + mStoredCommands.length + ":" + " [" + current_file + "]" + "> " +
+                              carriedCommandLine);
+                    untyped __global__.__hxcpp_dbg_setPrintReady(false);
+                    break;
+                  }
+                }
             }
 
             var commandLine = null;
@@ -432,10 +439,12 @@ class CommandLineController implements IController
                            fileName, lineNumber, columnNumber):
 
             current_file = fileName;
+            untyped __global__.__hxcpp_dbg_setPrintReady(false);
             if(untyped __global__.__hxcpp_dbg_getPrint()) {
               Sys.println("\nThread " + number + " stopped in " +
                           className + "." + functionName + "() at " +
                           fileName + ":" + lineNumber + ":" + columnNumber + ".");
+              untyped __global__.__hxcpp_dbg_setPrintReady(true);
             }
        }
     }

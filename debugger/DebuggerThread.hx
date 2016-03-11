@@ -216,15 +216,12 @@ class DebuggerThread
 
                 case Continue(count):
                     emit(this.continueCurrent(count));
-                    wasteTime();
 
                 case Step(count):
                     emit(this.step(count));
-                    wasteTime();
 
                 case Next(count):
                     emit(this.next(count));
-                    wasteTime();
 
                 case NextLine(count):
                     emit(this.nextLine(count));
@@ -279,18 +276,6 @@ class DebuggerThread
         // Another thread might immediately start another debugger and re-set
         // gStartedDebuggerThread, which is why it was latched previously.
         gStarted = false;
-    }
-
-    /**
-     * Solves a strange bug with the command line prompt, where in some cases
-     * the main loop of CommandLineController prints the prompt before the
-     * main loop of DebuggerThread has had time to emit() a Message to stdout.
-     * Specifically, this problem must be addressed when calling 'step', 'next'
-     * and 'continue'.
-    */
-    private function wasteTime() {
-       var x = 0;
-       while(x < 90000) x++;
     }
 
     private function handleThreadEvent(threadNumber : Int, event : Int,
