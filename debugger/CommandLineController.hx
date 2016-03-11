@@ -35,10 +35,23 @@ class CommandLineController implements IController
      * parse Commands from stdin, and emit debugger output to stdout.
      **/
     var current_file = "";
+
+    public function promptUnlock() {
+      untyped __global__.__hxcpp_dbg_setPrintReady(true);
+    }
+
+    public function promptLock() {
+      untyped __global__.__hxcpp_dbg_setPrintReady(false);
+    }
+
+    public function promptLockStatus() {
+      return untyped __global__.__hxcpp_dbg_getPrintReady();
+    }
+
     public function new()
     {
         untyped __global__.__hxcpp_dbg_setPrint(true);
-        untyped __global__.__hxcpp_dbg_setPrintReady(true);
+        promptLock();
         Sys.println("");
         Sys.println("-=- hxcpp built-in debugger in command line mode -=-");
         Sys.println("-=-      Use 'help' for help if you need it.     -=-");
@@ -51,6 +64,7 @@ class CommandLineController implements IController
         // Command 0 is not valid
         mStoredCommands.push("");
         this.setupRegexHandlers();
+        promptUnlock();
     }
 
     // Called when the process being debugged has started again
@@ -76,10 +90,10 @@ class CommandLineController implements IController
 
             if (mInputs.length == 1) {
                 while(true) {
-                  if(untyped __global__.__hxcpp_dbg_getPrintReady()) {
+                  if(promptLockStatus()) {
                     Sys.print("\n" + mStoredCommands.length + ":" + " [" + current_file + "]" + "> " +
                               carriedCommandLine);
-                    untyped __global__.__hxcpp_dbg_setPrintReady(false);
+                    promptLock();
                     break;
                   }
                 }
@@ -185,6 +199,7 @@ class CommandLineController implements IController
 
             if (!matched) {
                 Sys.println("Invalid command.");
+                promptUnlock();
                 continue;
             }
 
@@ -208,38 +223,48 @@ class CommandLineController implements IController
         switch (message) {
         case ErrorInternal(details):
             Sys.println("Debugged thread reported internal error: " + details);
+            promptUnlock();
 
         case ErrorNoSuchThread(number):
             Sys.println("No such thread " + number + ".");
+            promptUnlock();
 
         case ErrorNoSuchFile(fileName):
             Sys.println("No such file " + fileName + ".");
+            promptUnlock();
 
         case ErrorNoSuchBreakpoint(number):
             Sys.println("No such breakpoint " + number + ".");
+            promptUnlock();
 
         case ErrorBadClassNameRegex(details):
             Sys.println("Invalid class name regular expression: " +
                         details + ".");
+            promptUnlock();
 
         case ErrorBadFunctionNameRegex(details):
             Sys.println("Invalid function name regular expression: " +
                         details + ".");
+              promptUnlock();
 
         case ErrorNoMatchingFunctions(className, functionName,
                                       unresolvableClasses):
             Sys.println("No functions matching " + className + "." +
                         functionName + ".");
             printUnresolvableClasses(unresolvableClasses);
+            promptUnlock();
 
         case ErrorBadCount(count):
             Sys.println("Bad count " + count + ".");
+            promptUnlock();
 
         case ErrorCurrentThreadNotStopped(threadNumber):
             Sys.println("Current thread " + threadNumber + " not stopped.");
+            promptUnlock();
 
         case ErrorEvaluatingExpression(details):
             Sys.println("Failed to evaluate expression: " + details);
+            promptUnlock();
 
         case OK:
             // This message is just sent as a way to say that commands that
@@ -247,49 +272,61 @@ class CommandLineController implements IController
 
         case Exited:
             Sys.println("Debugged process has exited.");
+            promptUnlock();
 
         case Detached:
             Sys.println("Debugged process has detached.");
+            promptUnlock();
 
         case Files(list):
             printStringList(list, "\n");
             Sys.println("");
+            promptUnlock();
 
         case AllClasses(list):
             printStringList(list, "\n");
             Sys.println("");
+            promptUnlock();
 
         case Classes(list):
             // The command line controller never issues a request that should
             // have a Classes response, instead it asks for AllClasses
             throw "Internal error: unexpected Classes";
+            promptUnlock();
 
         case MemBytes(bytes):
             Sys.println(bytes + " bytes used.");
+            promptUnlock();
 
         case Compacted(bytesBefore, bytesAfter):
             Sys.println(bytesBefore + " bytes used before compaction.");
             Sys.println(bytesAfter + " bytes used after compaction.");
+            promptUnlock();
 
         case Collected(bytesBefore, bytesAfter):
             Sys.println(bytesBefore + " bytes used before collection.");
             Sys.println(bytesAfter + " bytes used after collection.");
+            promptUnlock();
 
         case ThreadLocation(number, frameNumber, className, functionName,
                             fileName, lineNumber, columnNumber):
             Sys.println("*     " + frameNumber + " : " +
                         className + "." + functionName + "() at " +
                         fileName + ":" + lineNumber + ":" + columnNumber);
+            promptUnlock();
 
         case FileLineBreakpointNumber(number):
             Sys.println("Breakpoint " + number + " set and enabled.");
+            promptUnlock();
 
         case ClassFunctionBreakpointNumber(number, unresolvableClasses):
             Sys.println("Breakpoint " + number + " set and enabled.");
             printUnresolvableClasses(unresolvableClasses);
+            promptUnlock();
 
         case Breakpoints(Terminator):
             Sys.println("No breakpoints.");
+            promptUnlock();
 
         case Breakpoints(list):
             Sys.println("Number | E/d | M | Description");
@@ -304,10 +341,12 @@ class CommandLineController implements IController
                     list = next;
                 }
             }
+            promptUnlock();
 
         case BreakpointDescription(number, Terminator):
             Sys.println("Breakpoint " + number + ":");
             Sys.println("    Breaks nowhere!");
+            promptUnlock();
 
         case BreakpointDescription(number, list):
             Sys.println("Breakpoint " + number + ":");
@@ -329,9 +368,11 @@ class CommandLineController implements IController
                     list = next;
                 }
             }
+            promptUnlock();
 
         case BreakpointStatuses(Terminator):
             Sys.println("No breakpoints affected.");
+            promptUnlock();
 
         case BreakpointStatuses(list):
             while (true) {
@@ -340,29 +381,36 @@ class CommandLineController implements IController
                     break;
                 case Nonexistent(number, next):
                     Sys.println("Breakpoint " + number + " does not exist.");
+                    promptUnlock();
                     list = next;
                 case Disabled(number, next):
                     Sys.println("Breakpoint " + number + " disabled.");
+                    promptUnlock();
                     list = next;
                 case AlreadyDisabled(number, next):
                     Sys.println("Breakpoint " + number +
                                 " was already disabled.");
+                    promptUnlock();
                     list = next;
                 case Enabled(number, next):
                     Sys.println("Breakpoint " + number + " enabled.");
+                    promptUnlock();
                     list = next;
                 case AlreadyEnabled(number, next):
                     Sys.println("Breakpoint " + number +
                                 " was already enabled.");
+                    promptUnlock();
                     list = next;
                 case Deleted(number, next):
                     Sys.println("Breakpoint " + number + " deleted.");
+                    promptUnlock();
                     list = next;
                 }
             }
 
         case ThreadsWhere(Terminator):
             Sys.println("No threads.");
+            promptUnlock();
 
         case ThreadsWhere(list):
             var needNewline : Bool = false;
@@ -382,16 +430,21 @@ class CommandLineController implements IController
                     switch (status) {
                     case Running:
                         Sys.println("running)");
+                        promptUnlock();
                         list = next;
                         isRunning = true;
                     case StoppedImmediate:
                         Sys.println("stopped):");
+                        promptUnlock();
                     case StoppedBreakpoint(number):
                         Sys.println("stopped in breakpoint " + number + "):");
+                        promptUnlock();
                     case StoppedUncaughtException:
                         Sys.println("uncaught exception):");
+                        promptUnlock();
                     case StoppedCriticalError(description):
                         Sys.println("critical error: " + description + "):");
+                        promptUnlock();
                     }
                     var hasStack = false;
                     while (true) {
@@ -406,11 +459,13 @@ class CommandLineController implements IController
                                       "()");
                             Sys.println(" at " + fileName + ":" + lineNumber + ":" + columnNumber);
                             hasStack = true;
+                            promptUnlock();
                             frameList = next;
                         }
                     }
                     if (!hasStack && !isRunning) {
                         Sys.println("No stack.");
+                        promptUnlock();
                     }
                     list = next;
                 }
@@ -419,18 +474,23 @@ class CommandLineController implements IController
         case Variables(list):
             printStringList(list, "\n");
             Sys.println("");
+            promptUnlock();
 
         case Value(expression, type, value):
             Sys.println(expression + " : " + type + " = " + value);
+            promptUnlock();
 
         case Structured(structuredValue):
             throw "Internal error: unexpected Structured";
+            promptUnlock();
 
         case ThreadCreated(number):
             Sys.println("\nThread " + number + " created.");
+            promptUnlock();
 
         case ThreadTerminated(number):
             Sys.println("\nThread " + number + " terminated.");
+            promptUnlock();
 
         case ThreadStarted(number):
             // Don't print anything
@@ -439,12 +499,11 @@ class CommandLineController implements IController
                            fileName, lineNumber, columnNumber):
 
             current_file = fileName;
-            untyped __global__.__hxcpp_dbg_setPrintReady(false);
             if(untyped __global__.__hxcpp_dbg_getPrint()) {
               Sys.println("\nThread " + number + " stopped in " +
                           className + "." + functionName + "() at " +
                           fileName + ":" + lineNumber + ":" + columnNumber + ".");
-              untyped __global__.__hxcpp_dbg_setPrintReady(true);
+              promptUnlock();
             }
        }
     }
@@ -675,6 +734,7 @@ class CommandLineController implements IController
 
         if (index == -1) {
             Sys.println("Invalid command.");
+            promptUnlock();
             return null;
         }
 
@@ -691,6 +751,7 @@ class CommandLineController implements IController
 
         if (index == -1) {
             Sys.println("Invalid command.");
+            promptUnlock();
             return null;
         }
 
@@ -712,6 +773,7 @@ class CommandLineController implements IController
 
             if (index == -1) {
                 Sys.println("Invalid command.");
+                promptUnlock();
                 return null;
             }
 
@@ -720,6 +782,7 @@ class CommandLineController implements IController
         }
         else {
             Sys.println("Invalid command.");
+            promptUnlock();
             return null;
         }
     }
