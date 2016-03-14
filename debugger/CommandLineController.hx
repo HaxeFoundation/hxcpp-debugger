@@ -35,17 +35,21 @@ class CommandLineController implements IController
      * parse Commands from stdin, and emit debugger output to stdout.
      **/
     var current_file = "";
+    var prompt_lock_status = false;
 
     public function promptUnlock() {
-      untyped __global__.__hxcpp_dbg_setPrintReady(true);
+      //untyped __global__.__hxcpp_dbg_setPrintReady(true);
+      prompt_lock_status = true;
     }
 
     public function promptLock() {
-      untyped __global__.__hxcpp_dbg_setPrintReady(false);
+      //untyped __global__.__hxcpp_dbg_setPrintReady(false);
+      prompt_lock_status = false;
     }
 
     public function promptLockStatus() {
-      return untyped __global__.__hxcpp_dbg_getPrintReady();
+      //return untyped __global__.__hxcpp_dbg_getPrintReady();
+      return prompt_lock_status;
     }
 
     public function new()
@@ -84,13 +88,17 @@ class CommandLineController implements IController
     public function getNextCommand() : Command
     {
         var carriedCommandLine : String = "";
-
+        var timeOut = 1000;
         while (true) {
             var input = mInputs[mInputs.length - 1];
-
+            var time = Date.now().getTime();
             if (mInputs.length == 1) {
                 while(true) {
-                  if(promptLockStatus()) {
+                  //If a flag fails to be raised, print a prompt anyway after
+                  //one second (defined in timeOut as 1000)
+                  var timeNow = Date.now().getTime();
+                  var delta = timeNow - time;
+                  if(promptLockStatus() || (delta > timeOut)) {
                     Sys.print("\n" + mStoredCommands.length + ":" + " [" + current_file + "]" + "> " +
                               carriedCommandLine);
                     promptLock();
@@ -102,8 +110,12 @@ class CommandLineController implements IController
             var commandLine = null;
 
             try {
+                var commandLineInput = input.readLine();
+                if(commandLineInput == "") {
+                  promptUnlock();
+                }
                 commandLine = StringTools.trim(carriedCommandLine +
-                                               input.readLine());
+                                               commandLineInput);
                 carriedCommandLine = "";
             }
             catch (e : haxe.io.Eof) {
@@ -117,9 +129,9 @@ class CommandLineController implements IController
                     continue;
                 }
             }
-
             if (mInputs.length == 1) {
                 Sys.println("");
+                //promptUnlock();
             }
 
             // If the command line ends with "\", don't execute the command,
@@ -130,6 +142,7 @@ class CommandLineController implements IController
             if (StringTools.endsWith(commandLine, "\\")) {
                 carriedCommandLine =
                     commandLine.substr(0, commandLine.length - 1);
+                promptUnlock();
                 continue;
             }
 
@@ -378,6 +391,7 @@ class CommandLineController implements IController
             while (true) {
                 switch (list) {
                 case Terminator:
+                    promptUnlock();
                     break;
                 case Nonexistent(number, next):
                     Sys.println("Breakpoint " + number + " does not exist.");
@@ -517,6 +531,7 @@ class CommandLineController implements IController
 
     private function detach(regex : EReg) : Null<Command>
     {
+        promptUnlock();
         return Detach;
     }
 
@@ -535,12 +550,14 @@ class CommandLineController implements IController
             for (h in gHelp) {
                 if (h.c == cmd) {
                     Sys.println( h.l + "\n");
+                    promptUnlock();
                     return null;
                 }
             }
 
             Sys.println("No such command '" + cmd + "'");
         }
+        promptUnlock();
         return null;
     }
 
@@ -549,6 +566,7 @@ class CommandLineController implements IController
         var line = regex.matched(1);
         if (line.length == 0) {
             Sys.println("The source command requires one argument.");
+            promptUnlock();
             return null;
         }
         if (gRegexQuotes.match(line)) {
@@ -560,7 +578,7 @@ class CommandLineController implements IController
         else {
             Sys.println("Failed to parse source line at: " + line + ".");
         }
-
+        promptUnlock();
         return null;
     }
 
@@ -573,13 +591,14 @@ class CommandLineController implements IController
         catch (e : Dynamic) {
             Sys.println("Failed to open " + path + " for sourcing.");
         }
-
+        promptUnlock();
         return null;
     }
 
     private function history(regex : EReg) : Null<Command>
     {
         this.historyRange(1, mStoredCommands.length - 1);
+        promptUnlock();
         return null;
     }
 
@@ -587,12 +606,14 @@ class CommandLineController implements IController
     {
         var number = Std.parseInt(regex.matched(1));
         this.historyRange(number, number);
+        promptUnlock();
         return null;
     }
 
     private function history_upto(regex : EReg) : Null<Command>
     {
         this.historyRange(1, Std.parseInt(regex.matched(1)));
+        promptUnlock();
         return null;
     }
 
@@ -600,6 +621,7 @@ class CommandLineController implements IController
     {
         this.historyRange(Std.parseInt(regex.matched(1)),
                            mStoredCommands.length - 1);
+        promptUnlock();
         return null;
     }
 
@@ -607,6 +629,7 @@ class CommandLineController implements IController
     {
         this.historyRange(Std.parseInt(regex.matched(1)),
                           Std.parseInt(regex.matched(2)));
+        promptUnlock();
         return null;
     }
 
@@ -623,6 +646,7 @@ class CommandLineController implements IController
         for (i in first ... (last + 1)) {
             Sys.println("(" + i + ") " + mStoredCommands[i]);
         }
+        promptUnlock();
     }
 
     private function files(regex : EReg) : Null<Command>
@@ -669,7 +693,7 @@ class CommandLineController implements IController
             mUnsafeMode = true;
             Sys.println("Now in unsafe mode.");
         }
-
+        promptUnlock();
         return null;
     }
 
@@ -683,12 +707,15 @@ class CommandLineController implements IController
             Sys.println("Already in safe mode.");
         }
 
+        promptUnlock();
         return null;
     }
 
     private function break_now(regex : EReg) : Null<Command>
     {
-        return BreakNow;
+        var res = BreakNow;
+        promptUnlock();
+        return res;
     }
     //CS116 - changed 0 to 1
     private function break_file_line_col(regex : EReg) : Null<Command>
