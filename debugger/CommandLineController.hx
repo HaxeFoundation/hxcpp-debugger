@@ -34,27 +34,41 @@ class CommandLineController implements IController
      * Creates a new command line interface.  This interface will read and
      * parse Commands from stdin, and emit debugger output to stdout.
      **/
-    var current_file = "";
-    var prompt_lock_status = false;
 
-    public function promptUnlock() {
+     /**
+     * Variables and methods to keep track of program-wide data of interest.
+     * current_file tracks the current file being stepped through.  This is
+     * to allow the user to issue a break command without stating the file
+     * should they so desire.
+     *prompt_lock_status functions as a semaphore for the prompt.  This is to
+     *fix a bug in which the prompt would print before the final debugger
+     *statement.  To fix this, a mechanism was added that allows the prompt
+     * to be locked directly after printing, and then unlocked at the completion
+     * of the command.  Only when prompt_status is set to true can the prompt
+     * print.  Should an unlock fail, a timeout of one second is present.
+     **/
+
+    private var current_file = "";
+    private var prompt_lock_status = false;
+
+    private function promptUnlock() {
       //untyped __global__.__hxcpp_dbg_setPrintReady(true);
       prompt_lock_status = true;
     }
 
-    public function promptLock() {
+    private function promptLock() {
       //untyped __global__.__hxcpp_dbg_setPrintReady(false);
       prompt_lock_status = false;
     }
 
-    public function promptLockStatus() {
+    private function promptLockStatus() {
       //return untyped __global__.__hxcpp_dbg_getPrintReady();
       return prompt_lock_status;
     }
 
     public function new()
     {
-        untyped __global__.__hxcpp_dbg_setPrint(true);
+        //untyped __global__.__hxcpp_dbg_setPrint(true);
         promptLock();
         Sys.println("");
         Sys.println("-=- hxcpp built-in debugger in command line mode -=-");
@@ -92,6 +106,12 @@ class CommandLineController implements IController
         while (true) {
             var input = mInputs[mInputs.length - 1];
             var time = Date.now().getTime();
+            //Change symbol if in unsafe mode
+            var promptSymbol = " $ ";
+            if(mUnsafeMode) {
+              promptSymbol = " # ";
+            }
+
             if (mInputs.length == 1) {
                 while(true) {
                   //If a flag fails to be raised, print a prompt anyway after
@@ -99,8 +119,8 @@ class CommandLineController implements IController
                   var timeNow = Date.now().getTime();
                   var delta = timeNow - time;
                   if(promptLockStatus() || (delta > timeOut)) {
-                    Sys.print("\n" + mStoredCommands.length + ":" + " [" + current_file + "]" + "> " +
-                              carriedCommandLine);
+                    Sys.print("\n" + mStoredCommands.length + ":" + " [" + current_file + "]" + promptSymbol +
+                              "> " + carriedCommandLine);
                     promptLock();
                     break;
                   }
