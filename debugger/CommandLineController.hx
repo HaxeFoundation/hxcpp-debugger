@@ -68,7 +68,7 @@ class CommandLineController implements IController
 
     public function new()
     {
-        //untyped __global__.__hxcpp_dbg_setPrint(true);
+        untyped __global__.__hxcpp_dbg_setPrint(true);
         promptLock();
         Sys.println("");
         Sys.println("-=- hxcpp built-in debugger in command line mode -=-");
@@ -82,7 +82,7 @@ class CommandLineController implements IController
         // Command 0 is not valid
         mStoredCommands.push("");
         this.setupRegexHandlers();
-        promptUnlock();
+        promptLock();
     }
 
     // Called when the process being debugged has started again
@@ -533,6 +533,7 @@ class CommandLineController implements IController
                            fileName, lineNumber, columnNumber):
 
             current_file = fileName;
+
             if(untyped __global__.__hxcpp_dbg_getPrint()) {
               Sys.println("\nThread " + number + " stopped in " +
                           className + "." + functionName + "() at " +
