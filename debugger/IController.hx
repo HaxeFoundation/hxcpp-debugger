@@ -169,15 +169,17 @@ typedef StringArray = Array<String>;
 
 
 /**
- * A list of class, possibly truncated so as not to be too large.
- * If truncated, a subsequent query for the remainder of the list can be done
- * using the continued expression.
+ * An array of classes. It's not being truncated. If this becomes an issue, it should
+ * be solved by adding a parameter that could be used to get the remainder of the array.
+ * It would have been much better if we had structs available in place of classes.
  **/
-enum ClassList
+typedef ClassArray = Array<ClassEnum>;
+class ClassEnum
 {
-    Terminator;
-    Continued(continuation : String);
-    Element(className : String, hasStatics : Bool, next : ClassList);
+    public var className : String;
+    public var hasStatics : Bool;
+
+    public function new() {}
 }
 
 
@@ -350,7 +352,7 @@ enum Message
     Detached;
     Files(list : StringArray);
     AllClasses(list : StringArray);
-    Classes(list : ClassList);
+    Classes(list : ClassArray);
     MemBytes(bytes : Int);
     Compacted(bytesBefore : Int, bytesAfter : Int);
     Collected(bytesBefore : Int, bytesAfter : Int);
