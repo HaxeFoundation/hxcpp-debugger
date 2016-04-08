@@ -1475,12 +1475,6 @@ private class TypeHelpers
         return className;
     }
 
-    private static function sortString(a : String, b : String)
-        : Int
-    {
-        return Reflect.compare(a.toLowerCase, b.toLowerCase);
-    }
-
     private static function getClassFieldNames(value : Dynamic, klass : Class<Dynamic>)
         : Array<String>
     {
