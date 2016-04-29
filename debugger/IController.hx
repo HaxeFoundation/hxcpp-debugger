@@ -167,21 +167,24 @@ enum Command
  **/
 typedef StringArray = Array<String>;
 
-
 /**
- * An array of classes. It's not being truncated. If this becomes an issue, it should
- * be solved by adding a parameter that could be used to get the remainder of the array.
- * It would have been much better if we had structs available in place of classes.
+ * An enum describing a class
  **/
-typedef ClassArray = Array<ClassEnum>;
-class ClassEnum
+enum ClassEnum
 {
-    public var className : String;
-    public var hasStatics : Bool;
-
-    public function new() {}
+    ClassFunction(className : String, hasStatics : Bool);
 }
 
+/**
+ * An array of enums, possibly truncated so that it's not too large.
+ * If truncated, a subsequent query for the remainder of the array can be done
+ * using the nextIndex parameter that points to the next index of the original
+ * array containing the list of the classes.
+ **/
+enum ClassList
+{
+    ClassFunction(classArray : Array<ClassEnum>, nextIndex : String);
+}
 
 /**
  * A list of breakpoints
@@ -352,7 +355,7 @@ enum Message
     Detached;
     Files(list : StringArray);
     AllClasses(list : StringArray);
-    Classes(list : ClassArray);
+    Classes(list : ClassList);
     MemBytes(bytes : Int);
     Compacted(bytesBefore : Int, bytesAfter : Int);
     Collected(bytesBefore : Int, bytesAfter : Int);

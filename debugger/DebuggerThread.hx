@@ -364,10 +364,10 @@ class DebuggerThread
             }
             // Allow at most 10K of classes in a message
             // Allow at most 100 classes in a message
-            /*if ((total == 100) || (f.length + byte_total) > (10 * 1024)) {
+            if ((total == 100) || (f.length + byte_total) > (10 * 1024)) {
                 continuation = Std.string(initial_to_skip + total);
                 break;
-            }*/
+            }
             total += 1;
             classes_to_use.push(f);
         }
@@ -377,17 +377,14 @@ class DebuggerThread
                 return Reflect.compare(b, a);
             });
 
-        //var list : ClassList = ((continuation == null) ? 
-        //                        Terminator : Continued(continuation));
-
-        var list : ClassArray = new ClassArray();
+        var ca = new Array<ClassEnum>();
 
         for (f in classes_to_use) {
-            var ce : ClassEnum = new ClassEnum();
-            ce.className = f;
-            ce.hasStatics = hasStaticValue(f);
-            list.push(ce);
+            var ce : ClassEnum = ClassFunction(f, hasStaticValue(f));
+            ca.push(ce);
         }
+
+        var list : ClassList = ClassFunction(ca, continuation);
 
         return Classes(list);
     }
