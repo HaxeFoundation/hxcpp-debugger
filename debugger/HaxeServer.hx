@@ -146,7 +146,10 @@ class HaxeServer
             catch (e : Dynamic) {
                 Sys.println("Client version not supported.");
                 Sys.println(e);
+                // Make sure the socket is being closed so that it doesn't hang
                 socket.close();
+                // Rethrow the exception in case the calling code needs to know about it
+                throw(e);
             }
 
             // Push the socket to the command thread to read from
