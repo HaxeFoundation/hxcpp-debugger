@@ -139,8 +139,18 @@ class HaxeServer
             var peer = socket.peer();
             Sys.println("\nReceived connection from " + peer.host + ".");
 
-            HaxeProtocol.writeServerIdentification(socket.output);
-            HaxeProtocol.readClientIdentification(socket.input);
+            try {
+                HaxeProtocol.writeServerIdentification(socket.output);
+                HaxeProtocol.readClientIdentification(socket.input);
+            }
+            catch (e : Dynamic) {
+                Sys.println("Client version not supported.");
+                Sys.println(e);
+                // Make sure the socket is being closed so that it doesn't hang
+                socket.close();
+                // Rethrow the exception in case the calling code needs to know about it
+                throw(e);
+            }
 
             // Push the socket to the command thread to read from
             mSocketQueue.push(socket);

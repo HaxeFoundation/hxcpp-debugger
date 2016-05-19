@@ -857,37 +857,27 @@ class CommandLineController implements IController
 
     // Utility functions and helpers -----------------------------------------
 
-    private static function printStringList(list : StringList, sep : String)
+    private static function printStringList(list : StringArray, sep : String)
     {
         var need_sep = false;
 
-        while (true) {
-            switch (list) {
-            case Terminator:
-                break;
-            case Element(string, next):
-                if (need_sep) {
-                    Sys.print(sep);
-                }
-                else {
-                    need_sep = true;
-                }
-                Sys.print(string);
-                list = next;
+        for(string in list) {
+            if (need_sep) {
+                Sys.print(sep);
             }
+            else {
+                need_sep = true;
+            }
+            Sys.print(string);
         }
     }
 
     private static function printUnresolvableClasses(
-                                              unresolvableClasses : StringList)
+                                              unresolvableClasses : StringArray)
     {
-        switch (unresolvableClasses) {
-        case Terminator:
-        case Element(string, next):
-            Sys.print("Unresolvable classes: ");
-            printStringList(unresolvableClasses, ", ");
-            Sys.println(".");
-        }
+        Sys.print("Unresolvable classes: ");
+        printStringList(unresolvableClasses, ", ");
+        Sys.println(".");
     }
 
     private static function findEndQuote(str : String, index : Int) : Int
