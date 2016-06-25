@@ -92,7 +92,7 @@ class HaxeServer
     /**
      * Creates a server.  This function never returns.
      **/
-    public function new(controller : CommandLineController, host : String,
+    public function new(controller : IController, host : String,
                         port : Int)
     {
         mController = controller;
@@ -225,7 +225,7 @@ class HaxeServer
         }
     }
 
-    private var mController : CommandLineController;
+    private var mController : IController;
     private var mSocketQueue : Deque<sys.net.Socket>;
     private var mCommandQueue : Deque<Command>;
     private var mReadCommandQueue : Deque<Bool>;
