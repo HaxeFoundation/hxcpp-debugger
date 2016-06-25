@@ -1285,6 +1285,7 @@ private class TypeHelpers
             var ret = "{\n";
             for (f in Reflect.fields(value)) {
                 ret += indent;
+				ret += f + ' : ';
                 ret += getValueString(Reflect.field(value, f), indent + "    ",
                                       ellipseForObjects);
                 ret += "\n";
