@@ -1276,15 +1276,14 @@ private class TypeHelpers
             return Std.string(value);
         case TObject:
 			
-			var isClass:Bool = false;
-			try{
-				cast(value, Class<Dynamic>);
-				isClass = true;
-			}catch (e:Dynamic) {}
-			
-            if (isClass) {
+			var klass = null;
+			try {
+				klass = cast(value, Class<Dynamic>);
+			} catch (e:Dynamic) {
+			}
+            if (klass != null) {
                 return ("Class<" + Std.string(value) + ">" +
-                        getClassValueString(value, indent));
+                        getClassValueString(klass, indent));
             }
             if (ellipseForObjects) {
                 return "...";
@@ -1324,14 +1323,17 @@ private class TypeHelpers
         case TClass(DebuggerVariables):
             return value.toString();
         case TClass(c):
+			
+			trace('TClass', c, value, Type.getClass(value));
+			
             if (ellipseForObjects) {
                 return "...";
             }
-            var klass = Type.getClass(value);
+            var klass:Class<Dynamic> = Type.getClass(value);
             if (klass == null) {
                 return "???";
             }
-            return getInstanceValueString(Type.getClass(value), value, indent);
+            return getInstanceValueString(klass, value, indent);
         }
 
         return Std.string(value);
@@ -1340,6 +1342,8 @@ private class TypeHelpers
     public static function getClassValueString(klass : Class<Dynamic>,
                                                indent : String) : String
     {
+		trace(klass);
+		
         var ret = "\n" + indent + "{\n";
 
         var fields = new Array<String>();
@@ -1365,6 +1369,8 @@ private class TypeHelpers
                                                   value : Dynamic,
                                                   indent : String) : String
     {
+		trace(klass);
+		
         var ret = "\n" + indent + "{\n";
 
         // Type seems to return the fields in the reverse order as they
@@ -1380,6 +1386,8 @@ private class TypeHelpers
 
         for (f in fields) {
             var fieldValue = Reflect.getProperty(value, f);
+			
+			trace(f, fieldValue);
             ret += (indent + "    " + f + " : " +
                     getValueTypeName(fieldValue) + " = " +
                     getValueString(fieldValue, indent + "    ", true) + "\n");
