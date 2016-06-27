@@ -1323,9 +1323,6 @@ private class TypeHelpers
         case TClass(DebuggerVariables):
             return value.toString();
         case TClass(c):
-			
-			trace('TClass', c, value, Type.getClass(value));
-			
             if (ellipseForObjects) {
                 return "...";
             }
@@ -1342,8 +1339,6 @@ private class TypeHelpers
     public static function getClassValueString(klass : Class<Dynamic>,
                                                indent : String) : String
     {
-		trace(klass);
-		
         var ret = "\n" + indent + "{\n";
 
         var fields = new Array<String>();
@@ -1369,8 +1364,6 @@ private class TypeHelpers
                                                   value : Dynamic,
                                                   indent : String) : String
     {
-		trace(klass);
-		
         var ret = "\n" + indent + "{\n";
 
         // Type seems to return the fields in the reverse order as they
@@ -1387,7 +1380,6 @@ private class TypeHelpers
         for (f in fields) {
             var fieldValue = Reflect.getProperty(value, f);
 			
-			trace(f, fieldValue);
             ret += (indent + "    " + f + " : " +
                     getValueTypeName(fieldValue) + " = " +
                     getValueString(fieldValue, indent + "    ", true) + "\n");
