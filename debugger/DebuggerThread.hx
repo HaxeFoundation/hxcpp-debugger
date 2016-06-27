@@ -1275,7 +1275,14 @@ private class TypeHelpers
         case TFunction:
             return Std.string(value);
         case TObject:
-            if (Std.is(value, Class)) {
+			
+			var isClass:Bool = false;
+			try{
+				cast(value, Class<Dynamic>);
+				isClass = true;
+			}catch (e:Dynamic) {}
+			
+            if (isClass) {
                 return ("Class<" + Std.string(value) + ">" +
                         getClassValueString(value, indent));
             }
@@ -1378,27 +1385,29 @@ private class TypeHelpers
                     getValueString(fieldValue, indent + "    ", true) + "\n");
         }
 
-        fields = new Array<String>();
-
         // Although the instance fields returned by Type seem to include super
         // class variables also, class variables do not, so iterate through
         // super classes manually
         while (klass != null) {
+			fields = new Array<String>();
+			
             for (f in Type.getClassFields(klass)) {
-                if (Reflect.isFunction(Reflect.field(value, f))) {
+                if (Reflect.isFunction(Reflect.field(klass, f))) {
                     continue;
                 }
                 fields.push(f);
             }
+			
+			for (f in fields) {
+				var fieldValue = Reflect.getProperty(klass, f);
+				ret += (indent + "    " + f + " : static " +
+						getValueTypeName(fieldValue) + " = " +
+						getValueString(fieldValue, indent + "    ", true) + "\n");
+			}
+			
             klass = Type.getSuperClass(klass);
         }
 
-        for (f in fields) {
-            var fieldValue = Reflect.getProperty(value, f);
-            ret += (indent + "    " + f + " : static " +
-                    getValueTypeName(fieldValue) + " = " +
-                    getValueString(fieldValue, indent + "    ", true) + "\n");
-        }
 
         return ret + indent + "}";
     }
