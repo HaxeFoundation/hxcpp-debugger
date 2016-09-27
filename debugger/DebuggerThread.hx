@@ -1262,8 +1262,9 @@ private class TypeHelpers
         return "INVALID";
     }
 
-    public static function getValueString(value : Dynamic, indent : String = "",
-                                      ellipseForObjects : Bool = false) : String
+    public static function getValueString
+        (value : Dynamic, indent : String = "",
+         ellipseForObjects : Bool = false) : String
     {
         switch (Type.typeof(value)) {
         case TUnknown:
@@ -1275,12 +1276,11 @@ private class TypeHelpers
         case TFunction:
             return Std.string(value);
         case TObject:
-			
-			var klass = null;
-			try {
-				klass = cast(value, Class<Dynamic>);
-			} catch (e:Dynamic) {
-			}
+            var klass = null;
+            try {
+                klass = cast(value, Class<Dynamic>);
+            } catch (e:Dynamic) {
+            }
             if (klass != null) {
                 return ("Class<" + Std.string(value) + ">" +
                         getClassValueString(klass, indent));
@@ -1291,13 +1291,12 @@ private class TypeHelpers
             var ret = "{\n";
             for (f in Reflect.fields(value)) {
                 ret += indent;
-				ret += f + ' : ';
+                ret += f + ' : ';
                 ret += getValueString(Reflect.field(value, f), indent + "    ",
                                       ellipseForObjects);
                 ret += "\n";
             }
             return ret + indent + "}";
-            
         case TClass(Array):
             var arr : Array<Dynamic> = cast value;
             if (arr.length == 0) {
@@ -1379,7 +1378,7 @@ private class TypeHelpers
 
         for (f in fields) {
             var fieldValue = Reflect.getProperty(value, f);
-			
+            
             ret += (indent + "    " + f + " : " +
                     getValueTypeName(fieldValue) + " = " +
                     getValueString(fieldValue, indent + "    ", true) + "\n");
@@ -1389,22 +1388,23 @@ private class TypeHelpers
         // class variables also, class variables do not, so iterate through
         // super classes manually
         while (klass != null) {
-			fields = new Array<String>();
-			
+            fields = new Array<String>();
+            
             for (f in Type.getClassFields(klass)) {
                 if (Reflect.isFunction(Reflect.field(klass, f))) {
                     continue;
                 }
                 fields.push(f);
             }
-			
-			for (f in fields) {
-				var fieldValue = Reflect.getProperty(klass, f);
-				ret += (indent + "    " + f + " : static " +
-						getValueTypeName(fieldValue) + " = " +
-						getValueString(fieldValue, indent + "    ", true) + "\n");
-			}
-			
+            
+            for (f in fields) {
+                var fieldValue = Reflect.getProperty(klass, f);
+                ret += (indent + "    " + f + " : static " +
+                        getValueTypeName(fieldValue) + " = " +
+                        getValueString(fieldValue, indent + "    ", true) +
+                        "\n");
+            }
+            
             klass = Type.getSuperClass(klass);
         }
 
@@ -1475,7 +1475,8 @@ private class TypeHelpers
         return className;
     }
 
-    private static function getClassFieldNames(value : Dynamic, klass : Class<Dynamic>)
+    private static function getClassFieldNames(value : Dynamic,
+                                               klass : Class<Dynamic>)
         : Array<String>
     {
         // We walk the class hierarchy to find all statics.
@@ -1519,8 +1520,9 @@ private class TypeHelpers
                         var property : Dynamic = Reflect.getProperty(klass, f);
                         if (null == property) {
                             // Variable was inlined.
-                            fieldValue = Single(getStructuredValueType(null),
-                                                Std.string("No instances (inlined)"));
+                            fieldValue = Single
+                                (getStructuredValueType(null),
+                                 Std.string("No instances (inlined)"));
                         }
                         else {
                             fieldValue = getStructuredValue(property, true,
