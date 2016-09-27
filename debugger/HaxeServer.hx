@@ -73,7 +73,7 @@ class HaxeServer
             default:
                 Sys.println("ERROR - invalid argument: " + argv[i]);
                 Sys.println("Usage: HaxeServer [-host <ip> (defaults to " +
-                            "local host name");
+                            "0.0.0.0 which means all local interfaces");
                 Sys.println("                  [-port <port>] (defaults to " +
                             "6972");
                 Sys.exit(-1);
@@ -81,7 +81,7 @@ class HaxeServer
         }
 
         if (host == null) {
-            host = sys.net.Host.localhost();
+            host = '0.0.0.0';
         }
 
         new HaxeServer(new CommandLineController(), host, port);
@@ -92,7 +92,7 @@ class HaxeServer
     /**
      * Creates a server.  This function never returns.
      **/
-    public function new(controller : CommandLineController, host : String,
+    public function new(controller : IController, host : String,
                         port : Int)
     {
         mController = controller;
@@ -225,7 +225,7 @@ class HaxeServer
         }
     }
 
-    private var mController : CommandLineController;
+    private var mController : IController;
     private var mSocketQueue : Deque<sys.net.Socket>;
     private var mCommandQueue : Deque<Command>;
     private var mReadCommandQueue : Deque<Bool>;

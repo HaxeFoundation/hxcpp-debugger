@@ -1275,9 +1275,15 @@ private class TypeHelpers
         case TFunction:
             return Std.string(value);
         case TObject:
-            if (Std.is(value, Class)) {
+			
+			var klass = null;
+			try {
+				klass = cast(value, Class<Dynamic>);
+			} catch (e:Dynamic) {
+			}
+            if (klass != null) {
                 return ("Class<" + Std.string(value) + ">" +
-                        getClassValueString(value, indent));
+                        getClassValueString(klass, indent));
             }
             if (ellipseForObjects) {
                 return "...";
@@ -1285,6 +1291,7 @@ private class TypeHelpers
             var ret = "{\n";
             for (f in Reflect.fields(value)) {
                 ret += indent;
+				ret += f + ' : ';
                 ret += getValueString(Reflect.field(value, f), indent + "    ",
                                       ellipseForObjects);
                 ret += "\n";
@@ -1319,11 +1326,11 @@ private class TypeHelpers
             if (ellipseForObjects) {
                 return "...";
             }
-            var klass = Type.getClass(value);
+            var klass:Class<Dynamic> = Type.getClass(value);
             if (klass == null) {
                 return "???";
             }
-            return getInstanceValueString(Type.getClass(value), value, indent);
+            return getInstanceValueString(klass, value, indent);
         }
 
         return Std.string(value);
@@ -1372,32 +1379,35 @@ private class TypeHelpers
 
         for (f in fields) {
             var fieldValue = Reflect.getProperty(value, f);
+			
             ret += (indent + "    " + f + " : " +
                     getValueTypeName(fieldValue) + " = " +
                     getValueString(fieldValue, indent + "    ", true) + "\n");
         }
 
-        fields = new Array<String>();
-
         // Although the instance fields returned by Type seem to include super
         // class variables also, class variables do not, so iterate through
         // super classes manually
         while (klass != null) {
+			fields = new Array<String>();
+			
             for (f in Type.getClassFields(klass)) {
-                if (Reflect.isFunction(Reflect.field(value, f))) {
+                if (Reflect.isFunction(Reflect.field(klass, f))) {
                     continue;
                 }
                 fields.push(f);
             }
+			
+			for (f in fields) {
+				var fieldValue = Reflect.getProperty(klass, f);
+				ret += (indent + "    " + f + " : static " +
+						getValueTypeName(fieldValue) + " = " +
+						getValueString(fieldValue, indent + "    ", true) + "\n");
+			}
+			
             klass = Type.getSuperClass(klass);
         }
 
-        for (f in fields) {
-            var fieldValue = Reflect.getProperty(value, f);
-            ret += (indent + "    " + f + " : static " +
-                    getValueTypeName(fieldValue) + " = " +
-                    getValueString(fieldValue, indent + "    ", true) + "\n");
-        }
 
         return ret + indent + "}";
     }
