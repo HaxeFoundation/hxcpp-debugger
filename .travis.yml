@@ -9,9 +9,23 @@ os:
   - osx
 
 sudo: false
+addons:
+  apt:
+    packages:
+      # C++ (for rebuilding hxcpp)
+      - gcc-multilib
+      - g++-multilib
 
 install:
-  - haxelib install hxcpp
+  - if [ "${TRAVIS_HAXE_VERSION}" = "development" ]; then
+      haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git;
+      pushd $(haxelib path hxcpp | head -1);
+        pushd tools/hxcpp; haxe compile.hxml; popd;
+        pushd project; neko build.n; popd;
+      popd;
+    else
+      haxelib install hxcpp;
+    fi
   - haxelib dev hxcpp-debugger .
   - haxelib list
 
