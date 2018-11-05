@@ -1,0 +1,5 @@
+-cp . 
+-main debugger.HaxeServer 
+-neko bin/HaxeServer.n
+-prompt
+-cmd start neko bin/HaxeServer.n

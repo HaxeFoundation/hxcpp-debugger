@@ -1,5 +1,5 @@
 package debugger;
 class Version {
-   public static inline var name="0.0.0";
+   public static inline var name="0.1.0";
 }
 

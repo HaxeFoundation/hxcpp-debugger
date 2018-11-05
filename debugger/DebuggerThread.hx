@@ -314,34 +314,22 @@ class DebuggerThread
         mController.acceptMessage(message);
     }
 
-    private function filesToList(files:Array<String>) : StringList
-    {
-        var list : StringList = Terminator;
-
-        // Preserve order
-        for (f in 0...files.length) {
-            list = Element(files[files.length-1-f], list);
-        }
-
-        return list;
-    }
-
     private function files() : Message
     {
         // Preserve order to match filesFullPath
-        return Files( filesToList( Debugger.getFiles() ) );
+        return Files( Debugger.getFiles() );
     }
 
     private function filesFullPath() : Message
     {
-        return Files( filesToList( Debugger.getFilesFullPath() ) );
+        return Files( Debugger.getFilesFullPath() );
     }
 
     private function allClasses() : Message
     {
         var classes = Debugger.getClasses();
 
-        var list : StringList = Terminator;
+        var list : StringArray = new StringArray();
 
         // Sort the classes in reverse so that the list can be created easily
         classes.sort(function (a : String, b : String) {
@@ -349,7 +337,7 @@ class DebuggerThread
             });
 
         for (f in classes) {
-            list = Element(f, list);
+            list.push(f);
         }
 
         return AllClasses(list);
@@ -389,12 +377,14 @@ class DebuggerThread
                 return Reflect.compare(b, a);
             });
 
-        var list : ClassList = ((continuation == null) ? 
-                                Terminator : Continued(continuation));
+        var ca = new Array<ClassEnum>();
 
         for (f in classes_to_use) {
-            list = Element(f, hasStaticValue(f), list);
+            var ce : ClassEnum = ClassFunction(f, hasStaticValue(f));
+            ca.push(ce);
         }
+
+        var list : ClassList = ClassFunction(ca, continuation);
 
         return Classes(list);
     }
@@ -524,10 +514,10 @@ class DebuggerThread
             var breakpoint = mBreakpointsByDescription.get(desc);
             breakpoint.enable();
             return ClassFunctionBreakpointNumber
-                (breakpoint.number, Terminator);
+                (breakpoint.number, null);
         }
 
-        var badClasses : StringList = Terminator;
+        var badClasses : StringArray = new StringArray();
 
         var classNames = Debugger.getClasses();
         for (cn in classNames) {
@@ -553,7 +543,7 @@ class DebuggerThread
             }
             var klass = Type.resolveClass(cn);
             if (klass == null) {
-                badClasses = Element(cn, badClasses);
+                badClasses.push(cn);
             }
             else {
                 this.breakFunction(desc, cn, klass, functionName,
@@ -996,7 +986,7 @@ class DebuggerThread
 
         mStateMutex.release();
 
-        var list : StringList = Terminator;
+        var list : StringArray = new StringArray();
 
         // Sort the variables in reverse so that the list can be created easily
         variables.sort(function (a : String, b : String) {
@@ -1004,7 +994,7 @@ class DebuggerThread
             });
 
         for (f in variables) {
-            list = Element(f, list);
+            list.push(f);
         }
 
         return Variables(list);
@@ -1232,6 +1222,8 @@ class DebuggerThread
 
 private class TypeHelpers
 {
+    private static inline var MAX_RECORD_AMOUNT = 100;
+
     public static function getValueTypeName(value : Dynamic) : String
     {
         switch (Type.typeof(value)) {
@@ -1272,8 +1264,9 @@ private class TypeHelpers
         return "INVALID";
     }
 
-    public static function getValueString(value : Dynamic, indent : String = "",
-                                      ellipseForObjects : Bool = false) : String
+    public static function getValueString
+        (value : Dynamic, indent : String = "",
+         ellipseForObjects : Bool = false) : String
     {
         switch (Type.typeof(value)) {
         case TUnknown:
@@ -1285,9 +1278,14 @@ private class TypeHelpers
         case TFunction:
             return Std.string(value);
         case TObject:
-            if (Std.is(value, Class)) {
+            var klass = null;
+            try {
+                klass = cast(value, Class<Dynamic>);
+            } catch (e:Dynamic) {
+            }
+            if (klass != null) {
                 return ("Class<" + Std.string(value) + ">" +
-                        getClassValueString(value, indent));
+                        getClassValueString(klass, indent));
             }
             if (ellipseForObjects) {
                 return "...";
@@ -1295,12 +1293,12 @@ private class TypeHelpers
             var ret = "{\n";
             for (f in Reflect.fields(value)) {
                 ret += indent;
+                ret += f + ' : ';
                 ret += getValueString(Reflect.field(value, f), indent + "    ",
                                       ellipseForObjects);
                 ret += "\n";
             }
             return ret + indent + "}";
-            
         case TClass(Array):
             var arr : Array<Dynamic> = cast value;
             if (arr.length == 0) {
@@ -1329,11 +1327,11 @@ private class TypeHelpers
             if (ellipseForObjects) {
                 return "...";
             }
-            var klass = Type.getClass(value);
+            var klass:Class<Dynamic> = Type.getClass(value);
             if (klass == null) {
                 return "???";
             }
-            return getInstanceValueString(Type.getClass(value), value, indent);
+            return getInstanceValueString(klass, value, indent);
         }
 
         return Std.string(value);
@@ -1382,32 +1380,36 @@ private class TypeHelpers
 
         for (f in fields) {
             var fieldValue = Reflect.getProperty(value, f);
+            
             ret += (indent + "    " + f + " : " +
                     getValueTypeName(fieldValue) + " = " +
                     getValueString(fieldValue, indent + "    ", true) + "\n");
         }
 
-        fields = new Array<String>();
-
         // Although the instance fields returned by Type seem to include super
         // class variables also, class variables do not, so iterate through
         // super classes manually
         while (klass != null) {
+            fields = new Array<String>();
+            
             for (f in Type.getClassFields(klass)) {
-                if (Reflect.isFunction(Reflect.field(value, f))) {
+                if (Reflect.isFunction(Reflect.field(klass, f))) {
                     continue;
                 }
                 fields.push(f);
             }
+            
+            for (f in fields) {
+                var fieldValue = Reflect.getProperty(klass, f);
+                ret += (indent + "    " + f + " : static " +
+                        getValueTypeName(fieldValue) + " = " +
+                        getValueString(fieldValue, indent + "    ", true) +
+                        "\n");
+            }
+            
             klass = Type.getSuperClass(klass);
         }
 
-        for (f in fields) {
-            var fieldValue = Reflect.getProperty(value, f);
-            ret += (indent + "    " + f + " : static " +
-                    getValueTypeName(fieldValue) + " = " +
-                    getValueString(fieldValue, indent + "    ", true) + "\n");
-        }
 
         return ret + indent + "}";
     }
@@ -1475,7 +1477,8 @@ private class TypeHelpers
         return className;
     }
 
-    private static function getClassFieldNames(value : Dynamic, klass : Class<Dynamic>)
+    private static function getClassFieldNames(value : Dynamic,
+                                               klass : Class<Dynamic>)
         : Array<String>
     {
         // We walk the class hierarchy to find all statics.
@@ -1519,8 +1522,9 @@ private class TypeHelpers
                         var property : Dynamic = Reflect.getProperty(klass, f);
                         if (null == property) {
                             // Variable was inlined.
-                            fieldValue = Single(getStructuredValueType(null),
-                                                Std.string("No instances (inlined)"));
+                            fieldValue = Single
+                                (getStructuredValueType(null),
+                                 Std.string("No instances (inlined)"));
                         }
                         else {
                             fieldValue = getStructuredValue(property, true,
@@ -1555,6 +1559,11 @@ private class TypeHelpers
                     var subexp = expression + "[" + i + "]";
                     list = Element(Std.string(i),
                                    getStructuredValue(val, true, subexp), list);
+                    //  Skip items if too many
+                    if (i > MAX_RECORD_AMOUNT) {
+                        list = Element("...", Single(TypeNull, "..."), list);
+                        i = MAX_RECORD_AMOUNT;
+                    }
                     i -= 1;
                 }
             }

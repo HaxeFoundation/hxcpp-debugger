@@ -132,7 +132,7 @@ class HaxeProtocol
     }
 
     private static var gClientIdentification = 
-        "Haxe debug client v1.1 coming at you!\n\n";
+        "Haxe debug client v1.2 coming at you!\n\n";
     private static var gServerIdentification = 
-        "Haxe debug server v1.1 ready and willing, sir!\n\n";
+        "Haxe debug server v1.2 ready and willing, sir!\n\n";
 }

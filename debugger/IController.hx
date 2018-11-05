@@ -162,29 +162,29 @@ enum Command
     // ErrorEvaluatingExpression
 }
 
+/**
+ * An array of strings
+ **/
+typedef StringArray = Array<String>;
 
 /**
- * A list of strings
+ * An enum describing a class
  **/
-enum StringList
+enum ClassEnum
 {
-    Terminator;
-    Element(string : String, next : StringList);
+    ClassFunction(className : String, hasStatics : Bool);
 }
 
-
 /**
- * A list of class, possibly truncated so as not to be too large.
- * If truncated, a subsequent query for the remainder of the list can be done
- * using the continued expression.
+ * An array of enums, possibly truncated so that it's not too large.
+ * If truncated, a subsequent query for the remainder of the array can be done
+ * using the nextIndex parameter that points to the next index of the original
+ * array containing the list of the classes.
  **/
 enum ClassList
 {
-    Terminator;
-    Continued(continuation : String);
-    Element(className : String, hasStatics : Bool, next : ClassList);
+    ClassFunction(classArray : Array<ClassEnum>, nextIndex : String);
 }
-
 
 /**
  * A list of breakpoints
@@ -344,7 +344,7 @@ enum Message
     ErrorBadClassNameRegex(details : String);
     ErrorBadFunctionNameRegex(details : String);
     ErrorNoMatchingFunctions(className : String, functionName : String,
-                             unresolvableClasses : StringList);
+                             unresolvableClasses : StringArray);
     ErrorBadCount(count : Int);
     ErrorCurrentThreadNotStopped(threadNumber : Int);
     ErrorEvaluatingExpression(details : String);
@@ -353,8 +353,8 @@ enum Message
     OK;
     Exited;
     Detached;
-    Files(list : StringList);
-    AllClasses(list : StringList);
+    Files(list : StringArray);
+    AllClasses(list : StringArray);
     Classes(list : ClassList);
     MemBytes(bytes : Int);
     Compacted(bytesBefore : Int, bytesAfter : Int);
@@ -363,12 +363,12 @@ enum Message
                    functionName : String, fileName : String, lineNumber : Int);
     FileLineBreakpointNumber(number : Int);
     ClassFunctionBreakpointNumber(number : Int, 
-                                  unresolvableClasses : StringList);
+                                  unresolvableClasses : StringArray);
     Breakpoints(list : BreakpointList);
     BreakpointDescription(number : Int, list : BreakpointLocationList);
     BreakpointStatuses(list : BreakpointStatusList);
     ThreadsWhere(list : ThreadWhereList);
-    Variables(list : StringList);
+    Variables(list : StringArray);
     Value(expression : String, type : String, value : String);
     Structured(structuredValue : StructuredValue);
 
