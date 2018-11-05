@@ -73,7 +73,7 @@ class HaxeServer
             default:
                 Sys.println("ERROR - invalid argument: " + argv[i]);
                 Sys.println("Usage: HaxeServer [-host <ip> (defaults to " +
-                            "local host name");
+                            "0.0.0.0 which means all local interfaces");
                 Sys.println("                  [-port <port>] (defaults to " +
                             "6972");
                 Sys.exit(-1);
@@ -81,7 +81,7 @@ class HaxeServer
         }
 
         if (host == null) {
-            host = sys.net.Host.localhost();
+            host = '0.0.0.0';
         }
 
         new HaxeServer(new CommandLineController(), host, port);
@@ -92,7 +92,7 @@ class HaxeServer
     /**
      * Creates a server.  This function never returns.
      **/
-    public function new(controller : CommandLineController, host : String,
+    public function new(controller : IController, host : String,
                         port : Int)
     {
         mController = controller;
@@ -139,8 +139,18 @@ class HaxeServer
             var peer = socket.peer();
             Sys.println("\nReceived connection from " + peer.host + ".");
 
-            HaxeProtocol.writeServerIdentification(socket.output);
-            HaxeProtocol.readClientIdentification(socket.input);
+            try {
+                HaxeProtocol.writeServerIdentification(socket.output);
+                HaxeProtocol.readClientIdentification(socket.input);
+            }
+            catch (e : Dynamic) {
+                Sys.println("Client version not supported.");
+                Sys.println(e);
+                // Make sure the socket is being closed so that it doesn't hang
+                socket.close();
+                // Rethrow the exception in case the calling code needs to know about it
+                throw(e);
+            }
 
             // Push the socket to the command thread to read from
             mSocketQueue.push(socket);
@@ -215,7 +225,7 @@ class HaxeServer
         }
     }
 
-    private var mController : CommandLineController;
+    private var mController : IController;
     private var mSocketQueue : Deque<sys.net.Socket>;
     private var mCommandQueue : Deque<Command>;
     private var mReadCommandQueue : Deque<Bool>;

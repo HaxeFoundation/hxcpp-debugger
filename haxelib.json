@@ -1,9 +1,9 @@
 {
     "name" : "hxcpp-debugger",
     "license" : "Apache",
-    "version" : "1.1.0",
+    "version" : "1.2.0",
     "description" : "Haxe classes implementing a debugger interface to the cpp.vm.Debugger class",
-    "contributors" : [ "gamehaxe" ],
+    "contributors" : [ "gamehaxe", "tanis2000" ],
     "releasenote" : "See Changes.md",
     "dependencies" : {
         "hxcpp" : ""

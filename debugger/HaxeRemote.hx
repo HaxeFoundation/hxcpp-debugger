@@ -169,6 +169,7 @@ class HaxeRemote implements IController
                 LogDebuggerMessage("Failed to connect to debugging server at " +
                             mHost + ":" + mPort + " : " + e);
             }
+            closeSocket();
             LogDebuggerMessage("Trying again in 3 seconds.");
             Sys.sleep(3);
         }
