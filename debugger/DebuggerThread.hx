@@ -1222,6 +1222,8 @@ class DebuggerThread
 
 private class TypeHelpers
 {
+    private static inline var MAX_RECORD_AMOUNT = 100;
+
     public static function getValueTypeName(value : Dynamic) : String
     {
         switch (Type.typeof(value)) {
@@ -1557,6 +1559,11 @@ private class TypeHelpers
                     var subexp = expression + "[" + i + "]";
                     list = Element(Std.string(i),
                                    getStructuredValue(val, true, subexp), list);
+                    //  Skip items if too many
+                    if (i > MAX_RECORD_AMOUNT) {
+                        list = Element("...", Single(TypeNull, "..."), list);
+                        i = MAX_RECORD_AMOUNT;
+                    }
                     i -= 1;
                 }
             }
